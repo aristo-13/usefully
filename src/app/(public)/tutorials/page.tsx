@@ -1,0 +1,1 @@
+export default function TutorialsPage() { return <div className="container py-8"><h1>Tutorials</h1></div>; }

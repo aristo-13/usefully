@@ -1,0 +1,1 @@
+export default function AdminDownloads() { return <div><h1>Manage Downloads</h1></div>; }

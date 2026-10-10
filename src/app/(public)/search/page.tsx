@@ -1,0 +1,1 @@
+export default function SearchPage() { return <div className="container py-8"><h1>Search</h1></div>; }

@@ -1,0 +1,1 @@
+export default function AdminMedia() { return <div><h1>Manage Media</h1></div>; }

@@ -1,0 +1,1 @@
+export default function AdminResources() { return <div><h1>Manage Resources</h1></div>; }

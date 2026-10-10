@@ -1,0 +1,1 @@
+export default function AdminTags() { return <div><h1>Manage Tags</h1></div>; }

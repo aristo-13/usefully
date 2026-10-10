@@ -1,0 +1,1 @@
+export default function AdminTutorials() { return <div><h1>Manage Tutorials</h1></div>; }
