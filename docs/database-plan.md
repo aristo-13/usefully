@@ -1,101 +1,54 @@
-# Database Plan
+# Database
 
-This document outlines the intended future Supabase tables and their main relationships.
+The schema lives in [`supabase/migrations/20261011120000_initial_schema.sql`](../supabase/migrations/20261011120000_initial_schema.sql). This page summarizes it.
 
-## Planned Tables
+All four content types share one table, so search, tags, categories, the sitemap and the editor work the same way for every type.
 
-### 1. `profiles`
-Extends the default Supabase `auth.users` table with additional user information.
-- `id` (uuid, primary key, references `auth.users.id`)
-- `role` (enum: 'admin', 'user')
-- `full_name` (text)
-- `avatar_url` (text)
-- `created_at` (timestamp)
-- `updated_at` (timestamp)
+## Tables
 
-### 2. `categories`
-Groups content (articles, tutorials, resources, etc.) logically.
-- `id` (uuid, primary key)
-- `name` (text)
-- `slug` (text, unique)
-- `description` (text, nullable)
-- `created_at` (timestamp)
+### `profiles`
+Authors and admins, one row per `auth.users` account that needs dashboard access (created with SQL, see the README).
+- `id` (uuid, references `auth.users`), `display_name`, `bio`
+- `role`: `'user' | 'admin'`. Only changeable with SQL; the API grants editors update access to `display_name` and `bio` only.
 
-### 3. `tags`
-Provides fine-grained categorization for content.
-- `id` (uuid, primary key)
-- `name` (text)
-- `slug` (text, unique)
-- `created_at` (timestamp)
+### `content_items`
+Articles, tutorials, resources and downloads.
+- `type`: `'article' | 'tutorial' | 'resource' | 'download'`
+- `status`: `'draft' | 'in_review' | 'published'`
+- `title`, `slug` (unique across all types), `excerpt` (summary), `body` (Markdown)
+- `category_id` → `categories`, `author_id` → `profiles`, `cover_media_id` → `media`
+- SEO: `seo_title`, `seo_description`, `canonical_url`, `noindex`, `keywords text[]`
+- Type-specific: `external_url` (resources, external downloads), `file_path`/`file_name`/`file_size`/`file_mime` (uploaded downloads), `version`, `difficulty` (tutorials)
+- Trust: `sources jsonb` (`[{ title, url, publisher? }]`), `ai_generated`, `reviewed_by`, `reviewed_at`
+- `published_at` (set on first publish), `updated_at` (not changed by click counting), `click_count`, `search_vector` (weighted full-text index: title, then summary and keywords, then body)
 
-### 4. `articles`
-Stores blog posts and editorial content.
-- `id` (uuid, primary key)
-- `title` (text)
-- `slug` (text, unique)
-- `content` (text/jsonb for TipTap)
-- `excerpt` (text)
-- `cover_image_url` (text, nullable)
-- `author_id` (uuid, references `profiles.id`)
-- `category_id` (uuid, references `categories.id`)
-- `published_at` (timestamp, nullable)
-- `created_at` (timestamp)
-- `updated_at` (timestamp)
+Constraints: a published row must have `reviewed_at`; published resources need a URL; published downloads need a file or a URL; URLs must be `http(s)`; slugs are lowercase words separated by hyphens.
 
-### 5. `tutorials`
-Stores step-by-step guides and instructional content.
-- `id` (uuid, primary key)
-- `title` (text)
-- `slug` (text, unique)
-- `content` (text/jsonb)
-- `difficulty` (enum: 'beginner', 'intermediate', 'advanced')
-- `author_id` (uuid, references `profiles.id`)
-- `category_id` (uuid, references `categories.id`)
-- `published_at` (timestamp, nullable)
-- `created_at` (timestamp)
-- `updated_at` (timestamp)
+### `categories`, `tags`
+`name`, `slug` (unique), `description`. Items have at most one category and any number of tags through `content_tags (content_id, tag_id)`.
 
-### 6. `resources`
-Stores useful external links and tools.
-- `id` (uuid, primary key)
-- `title` (text)
-- `description` (text)
-- `url` (text)
-- `icon_url` (text, nullable)
-- `category_id` (uuid, references `categories.id`)
-- `created_at` (timestamp)
+### `media`
+Images in the `media` bucket: `storage_path`, `file_name`, `mime_type`, `size_bytes`, `width`, `height`, `alt_text`, `uploaded_by`.
 
-### 7. `downloads`
-Stores downloadable assets or files.
-- `id` (uuid, primary key)
-- `title` (text)
-- `description` (text)
-- `file_url` (text)
-- `icon_url` (text, nullable)
-- `category_id` (uuid, references `categories.id`)
-- `created_at` (timestamp)
+### `redirects`
+Custom short links served at `/go/<slug>`: `slug` (unique), `destination_url`, `is_active`, `click_count`, `notes`.
 
-### 8. `redirects`
-Manages short links or platform redirects.
-- `id` (uuid, primary key)
-- `source_path` (text, unique)
-- `destination_url` (text)
-- `clicks` (integer, default 0)
-- `created_at` (timestamp)
+## Functions
 
-### 9. `media`
-Tracks uploaded files within Supabase storage for the CMS.
-- `id` (uuid, primary key)
-- `file_name` (text)
-- `file_path` (text)
-- `content_type` (text)
-- `size` (integer)
-- `uploaded_by` (uuid, references `profiles.id`)
-- `created_at` (timestamp)
+| Function | Access | Purpose |
+| --- | --- | --- |
+| `search_content(query, type, limit)` | everyone (RLS applies) | Ranked full-text search with a partial-title fallback. Published items only. |
+| `resolve_go_link(slug)` | everyone (security definer) | Returns the target of an active redirect or a published resource/download and increments its click counter. |
+| `category_counts()`, `tag_counts()` | everyone | Published item counts. |
+| `content_status_counts()` | signed-in (RLS applies) | Dashboard counts by type and status. |
+| `private.is_admin()` | used by policies | Whether the current user has the admin role. Not exposed by the API. |
 
-## Relationships (Many-to-Many)
+## Access rules (RLS)
 
-- **`article_tags`**: Links `articles` and `tags` (article_id, tag_id).
-- **`tutorial_tags`**: Links `tutorials` and `tags` (tutorial_id, tag_id).
-- **`resource_tags`**: Links `resources` and `tags` (resource_id, tag_id).
-- **`download_tags`**: Links `downloads` and `tags` (download_id, tag_id).
+| Table | Visitors (`anon`) | Admins |
+| --- | --- | --- |
+| `content_items`, `content_tags` | Published items only | Everything |
+| `categories`, `tags` | Read | Everything |
+| `media` | Images used as covers of published items | Everything |
+| `profiles` | `id`, `display_name`, `bio` of authors and reviewers of published items | Read all; editors update their own name and bio |
+| `redirects` | None (resolved only through `resolve_go_link`) | Everything |

@@ -1,1 +1,57 @@
-export default function AdminLayout({ children }: { children: React.ReactNode }) { return <div className="min-h-screen flex"><aside className="w-64 border-r p-4 hidden md:block"><div className="font-bold mb-8">Admin Panel</div><nav className="flex flex-col gap-2"><a href="/admin/articles">Articles</a><a href="/admin/tutorials">Tutorials</a><a href="/admin/resources">Resources</a><a href="/admin/downloads">Downloads</a><a href="/admin/categories">Categories</a><a href="/admin/tags">Tags</a><a href="/admin/media">Media</a><a href="/admin/settings">Settings</a></nav></aside><main className="flex-1 p-8">{children}</main></div>; }
+import type { Metadata } from 'next'
+import Link from 'next/link'
+import { Suspense } from 'react'
+
+import { AccountMenu } from '@/components/admin/account-menu'
+import { AdminNav, AdminNavLinks } from '@/components/admin/admin-nav'
+import { LogoMark } from '@/components/site/logo'
+import { siteConfig } from '@/lib/site'
+
+export const metadata: Metadata = {
+  title: { default: 'Dashboard', template: `%s · ${siteConfig.name} admin` },
+  robots: { index: false, follow: false },
+}
+
+// Every admin page checks the admin role itself (layouts are not re-run on
+// client navigation) and the database enforces it again through RLS.
+export default function AdminLayout({ children }: LayoutProps<'/admin'>) {
+  return (
+    <div className="flex min-h-screen flex-col md:flex-row">
+      <aside className="border-b border-border bg-muted/30 md:w-60 md:shrink-0 md:border-r md:border-b-0">
+        <div className="flex flex-col gap-4 p-4 md:sticky md:top-0 md:h-screen md:overflow-y-auto">
+          <Link href="/admin" className="flex items-center gap-2 text-base font-semibold text-foreground">
+            <LogoMark size={22} />
+            <span>
+              {siteConfig.name} <span className="font-normal text-muted-foreground">admin</span>
+            </span>
+          </Link>
+          <details className="group md:hidden">
+            <summary className="cursor-pointer rounded-md border border-border px-3 py-2 text-sm font-medium">
+              Menu
+            </summary>
+            <div className="mt-3">
+              <Suspense fallback={<AdminNavLinks />}>
+                <AdminNav />
+              </Suspense>
+            </div>
+          </details>
+          <div className="hidden md:block">
+            <Suspense fallback={<AdminNavLinks />}>
+              <AdminNav />
+            </Suspense>
+          </div>
+        </div>
+      </aside>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex min-h-14 items-center justify-end border-b border-border px-4 py-2 md:px-8">
+          <Suspense fallback={null}>
+            <AccountMenu />
+          </Suspense>
+        </header>
+        <main id="main" className="flex-1 px-4 py-6 md:px-8 md:py-8">
+          {children}
+        </main>
+      </div>
+    </div>
+  )
+}

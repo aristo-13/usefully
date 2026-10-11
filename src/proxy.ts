@@ -1,19 +1,14 @@
-import { type NextRequest } from 'next/server';
-import { updateSession } from '@/lib/supabase/middleware';
+import type { NextRequest } from 'next/server'
+
+import { updateSession } from '@/lib/supabase/proxy'
 
 export async function proxy(request: NextRequest) {
-  return await updateSession(request);
+  return updateSession(request)
 }
 
 export const config = {
-  matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico (favicon file)
-     * Feel free to modify this pattern to include more paths.
-     */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
-  ],
-};
+  // Only the dashboard and sign-in pages use the auth session. Keeping the
+  // proxy off public routes avoids an auth round trip on every page view and
+  // lets public pages be served straight from the static cache.
+  matcher: ['/admin/:path*', '/auth/:path*'],
+}

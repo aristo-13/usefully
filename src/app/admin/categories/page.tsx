@@ -1,1 +1,9 @@
-export default function AdminCategories() { return <div><h1>Manage Categories</h1></div>; }
+import type { Metadata } from 'next'
+
+import { TaxonomyIndex } from '@/components/admin/taxonomy-pages'
+
+export const metadata: Metadata = { title: 'Categories' }
+
+export default function AdminCategoriesPage({ searchParams }: PageProps<'/admin/categories'>) {
+  return <TaxonomyIndex kind="category" searchParams={searchParams} />
+}
