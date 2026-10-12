@@ -20,7 +20,9 @@ Built with Next.js 16 (App Router, Cache Components), TypeScript, Tailwind CSS 4
 - Pages show the breadcrumb and the content only: no visible page titles or descriptions. Each page keeps a hidden heading for screen readers and search engines.
 - Every list (home sections, articles, tutorials, resources, downloads, categories, category and tag pages, search results) shows **3 items at a time** with a **Load more** button. Without JavaScript the button is a link to the next page, so everything stays reachable.
 - Every item has a **share** button. It shares the item's page on this site (using the device's share sheet, or copying the link), never a direct download or outbound link, so people land on the page and decide what to do there.
-- Item pages with breadcrumbs, table of contents, cover image, sources, tags, author box and related reading.
+- Item pages with breadcrumbs, table of contents, cover image (uploaded or linked from another site), sources, tags, author box and related reading. Downloads show the app's icon next to the title. Resources can feature a video (YouTube, Vimeo or a video file); YouTube and Vimeo load only when a visitor presses play.
+- Cards show a download's icon, otherwise the cover image (or the video's still image), so lists are easy to scan.
+- Every page fades in when it opens, on a full load and after navigating (instant for visitors who prefer reduced motion).
 - Resource pages link out through `/go/<slug>`; download pages show file name, format, size, version and last update. Uploaded files are served through short-lived signed links.
 - Static, cached pages that update the moment an editor publishes, unpublishes or edits something.
 
@@ -28,6 +30,7 @@ Built with Next.js 16 (App Router, Cache Components), TypeScript, Tailwind CSS 4
 - Create, edit, preview, publish, unpublish and delete all content.
 - Workflow: *Draft → Ready for review → Published*. Publishing records who approved the item and when.
 - Categories, tags, keywords, media library, custom `/go/` redirects with click counts, and SEO fields (SEO title, meta description, canonical URL, noindex).
+- Every post has a cover image field, downloads an app icon field and resources a video field. Each one accepts an upload, a link or a file from the media library, with a preview that appears as soon as you pick a file or paste a link.
 
 **Content quality safeguards**
 - Source references on every item, listed at the end of the page.
@@ -60,6 +63,7 @@ The schema (tables, Row Level Security policies, search, storage buckets and sto
 1. `20261011120000_initial_schema.sql`
 2. `20261012090000_search_paging.sql`
 3. `20261012120000_least_privilege_grants.sql`: removes the broad grants that older Supabase projects give every new table and function automatically. Required on those projects.
+4. `20261012180000_post_media.sql`: linked cover images, app icons for downloads, videos for resources, and MP4/WebM videos in the media library. The site's pages need it.
 
 - **SQL Editor:** open your project → SQL Editor, paste each file's contents in order and run it.
 - **Supabase CLI** (applies them all automatically):
@@ -190,7 +194,7 @@ where p.role = 'admin';
 Most of this is already enforced in code; these are the settings only you can make.
 
 **Supabase dashboard**
-- [ ] All three migrations applied, `npm run check:supabase` passes, and the "Least-privilege grants" query above returns only `false`.
+- [ ] All four migrations applied, `npm run check:supabase` passes, and the "Least-privilege grants" query above returns only `false`.
 - [ ] *Allow new users to sign up* is **off** (Authentication → Sign In / Providers).
 - [ ] Password policy: minimum length **12** or more, and *Leaked password protection* on where your plan offers it (Authentication → Providers → Email / Policies).
 - [ ] Rate limits for sign-ins and token refreshes left at their defaults or lower (Authentication → Rate Limits).
@@ -222,13 +226,14 @@ A typical first session:
    - **Summary:** one or two plain sentences that directly answer what the page covers. It is used in listings, search results and as the meta description.
    - **Body:** Markdown. `##` headings build the table of contents. Raw HTML is not rendered.
    - **Sources:** cite what you relied on; only add sources you have checked.
-   - **Resources** need the website address. **Downloads** need either an uploaded file (up to 50 MB) or an external link.
+   - **Resources** need a website address, a video or a cover photo before publishing. **Downloads** need either an uploaded file (up to 50 MB) or an external link.
+   - **Cover image** (every post), **App icon** (downloads) and **Video** (resources): choose *Upload*, *Link* or *Library*. The preview updates as soon as you pick a file or paste a link. Links to other sites must start with `https://`; videos can be YouTube or Vimeo links, or a direct link to an MP4 or WebM file. Give covers alt text that describes the image.
 4. Use **Save draft** or **Mark ready for review**, check **Preview saved version**, then **Publish**.
 5. To take a page offline without deleting it, use **Unpublish**.
 
 Other tools:
 
-- **Media:** upload images (JPEG, PNG, WebP, GIF or AVIF, up to 5 MB) with alt text, pick them as cover images, or copy the Markdown snippet to place an image inside an article.
+- **Media:** upload images (JPEG, PNG, WebP, GIF or AVIF, up to 5 MB) and videos (MP4 or WebM, up to 50 MB). Use them as covers, icons or videos, or copy the Markdown snippet to place an image inside an article. Deleting a file removes it from every post that uses it.
 - **Redirects:** every published resource and download is reachable at `/go/<its-slug>`. Add custom short links here (for example `/go/newsletter`); each visit is counted.
 - **Search engine settings** (in the editor): SEO title (replaces the whole `<title>`), meta description, keywords, canonical URL (only for content first published elsewhere) and *noindex*.
 
@@ -266,8 +271,9 @@ Slugs are unique across all content types, which keeps `/go/<slug>` unambiguous.
 - **Explicit grants:** new tables are no longer exposed to the Supabase Data API automatically (enforced from 2026-10-30), so the migrations grant each role exactly what it needs. Editors can change only their own display name and bio, never a role.
 - **Authentication:** the proxy (`src/proxy.ts`) refreshes the session and redirects signed-out visitors away from `/admin`. Every admin page and Server Action verifies the JWT (`getClaims`) and the admin role again, and RLS is the final check. Sign-in uses the same message for unknown accounts and wrong passwords.
 - **Cookies:** auth cookies are `httpOnly`. The browser never holds a Supabase session: to upload, the dashboard asks a Server Action (which checks the admin role) for a one-time signed upload URL for one generated path.
-- **Storage:** `media` is a public image bucket (5 MB, no SVG). `downloads` is private (50 MB); storage policies let visitors obtain a 60-second signed link only for files attached to published downloads. Only admins can upload or delete.
+- **Storage:** `media` is a public bucket for images (5 MB, no SVG) and videos (MP4/WebM, 50 MB). `downloads` is private (50 MB); storage policies let visitors obtain a 60-second signed link only for files attached to published downloads. Only admins can upload or delete.
 - **Input handling:** all Server Action and API input is validated with zod. URLs must be `http(s)` (also enforced by database constraints). Markdown ignores raw HTML and strips unsafe link targets. JSON-LD output is escaped.
+- **Media from other sites:** linked images and video files must use `https://` and are shown as they are; only files from your own media library go through image optimisation, so the optimiser never fetches arbitrary URLs. The only embeddable players are YouTube (privacy-enhanced `youtube-nocookie.com`) and Vimeo, sandboxed and loaded on demand.
 - **Headers** (`next.config.ts`): Content-Security-Policy, HSTS in production, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Cross-Origin-Opener-Policy` and `Permissions-Policy`.
 
 ### Writing for search and AI answers
@@ -334,7 +340,7 @@ npx supabase gen types typescript --project-id <your-project-ref> --schema publi
 If you applied earlier migrations in the SQL Editor and later switch to the CLI, first tell the CLI they are already applied, so `db push` does not run them again:
 
 ```bash
-npx supabase migration repair --status applied 20261011120000 20261012090000 20261012120000
+npx supabase migration repair --status applied 20261011120000 20261012090000 20261012120000 20261012180000
 ```
 
 ## Troubleshooting
@@ -344,6 +350,8 @@ npx supabase migration repair --status applied 20261011120000 20261012090000 202
 | Logs show `Could not find the table 'public.content_items'` (`PGRST205`) and the site is empty | The migrations have not been applied (step 2). |
 | Search shows "temporarily unavailable" and logs mention `search_content` | Apply the second migration, `20261012090000_search_paging.sql`. |
 | `check:supabase` says account roles or dashboard statistics are readable by anyone | Apply the third migration, `20261012120000_least_privilege_grants.sql`. |
+| Pages fail to load and logs mention `cover_image_url`, `icon_url` or `video_url` (`42703`), or `check:supabase` says post media fields are missing | Apply the fourth migration, `20261012180000_post_media.sql`. |
+| A video upload is rejected by storage (unsupported type or too large) | Apply the fourth migration; it lets the `media` bucket accept MP4 and WebM videos up to 50 MB. |
 | "This account does not have access to the dashboard" | The account has no admin profile; run the SQL in step 3. |
 | "Supabase is not configured" on the sign-in page | Check `.env.local`, then restart the dev server or rebuild. |
 | Signed in, but you're sent back to the login page on a plain `http://` production server | Production cookies are `Secure`; serve the site over HTTPS (localhost is exempt). |

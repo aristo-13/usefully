@@ -75,6 +75,8 @@ export async function GET(request: NextRequest) {
         publishedAt: item.publishedAt,
         updatedAt: item.updatedAt,
         category: item.category,
+        thumbnail: item.thumbnail,
+        hasVideo: item.hasVideo,
       }))
       return respond({ items, hasMore: result.hasMore })
     }

@@ -51,7 +51,7 @@ export default function AdminLayout({ children }: LayoutProps<'/admin'>) {
             <AccountMenu />
           </Suspense>
         </header>
-        <main id="main" className="flex-1 px-4 py-6 md:px-8 md:py-8">
+        <main id="main" className="flex-1 px-4 py-6 *:animate-page-fade md:px-8 md:py-8">
           {children}
         </main>
       </div>

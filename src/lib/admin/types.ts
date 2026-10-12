@@ -24,6 +24,12 @@ export type EditableContent = {
   categoryId: string | null
   authorId: string | null
   coverMediaId: string | null
+  /** Public URL of the uploaded cover, for the editor preview. */
+  coverMediaUrl: string | null
+  coverImageUrl: string
+  coverAlt: string
+  iconUrl: string
+  videoUrl: string
   seoTitle: string
   seoDescription: string
   canonicalUrl: string
@@ -68,10 +74,11 @@ export type MediaRow = {
   height: number | null
   altText: string
   createdAt: string
-  coverUsage: number
+  /** Posts that use the file as their cover, icon or video. */
+  usage: number
 }
 
-export type MediaOption = { id: string; fileName: string; altText: string; url: string | null }
+export type MediaOption = { id: string; fileName: string; altText: string; url: string | null; kind: 'image' | 'video' }
 
 export type DashboardData = {
   counts: Record<ContentType, Record<ContentStatus, number>>

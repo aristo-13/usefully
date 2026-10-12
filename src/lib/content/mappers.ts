@@ -5,16 +5,26 @@ import {
   isDifficulty,
   type ContentDetail,
   type ContentSummary,
+  type ContentType,
+  type ImageRef,
   type Source,
 } from '@/lib/content/types'
+import { parseVideoUrl, videoThumbnailUrl } from '@/lib/media'
+import { isMediaLibraryUrl, mediaPublicUrl } from '@/lib/supabase/config'
 
 type Ref = { name: string; slug: string } | null
+type MediaRef = { storage_path: string; alt_text: string; width: number | null; height: number | null } | null
+
+/** Columns and relations needed to render a content card. */
+export const SUMMARY_SELECT =
+  'id, type, title, slug, excerpt, published_at, updated_at, cover_image_url, cover_alt, icon_url, video_url, category:categories(name, slug), cover:media(storage_path, alt_text, width, height)'
 
 /** Columns and relations needed to render a content page (public and preview). */
 export const DETAIL_SELECT = `
   id, type, status, title, slug, excerpt, body, published_at, updated_at, category_id,
   seo_title, seo_description, canonical_url, noindex, keywords,
   external_url, file_path, file_name, file_size, file_mime, version, difficulty,
+  cover_image_url, cover_alt, icon_url, video_url,
   sources, ai_generated, reviewed_at,
   category:categories(name, slug),
   author:profiles!content_items_author_id_fkey(display_name, bio),
@@ -32,6 +42,11 @@ export type SummaryRow = {
   published_at: string | null
   updated_at: string
   category: Ref
+  cover: MediaRef
+  cover_image_url: string | null
+  cover_alt: string | null
+  icon_url: string | null
+  video_url: string | null
 }
 
 export type DetailRow = SummaryRow & {
@@ -55,8 +70,40 @@ export type DetailRow = SummaryRow & {
   reviewed_at: string | null
   author: { display_name: string; bio: string } | null
   reviewer: { display_name: string } | null
-  cover: { storage_path: string; alt_text: string; width: number | null; height: number | null } | null
   content_tags: { tags: Ref }[]
+}
+
+function linkedImage(src: string | null, alt: string): ImageRef | null {
+  return src ? { src, alt, width: null, height: null, optimize: isMediaLibraryUrl(src) } : null
+}
+
+/** The cover: an uploaded image (with its size) or an image linked from another site. */
+function coverImage(row: SummaryRow): ImageRef | null {
+  if (row.cover) {
+    const src = mediaPublicUrl(row.cover.storage_path)
+    if (!src) return null
+    return {
+      src,
+      alt: row.cover_alt || row.cover.alt_text,
+      width: row.cover.width,
+      height: row.cover.height,
+      optimize: true,
+    }
+  }
+  return linkedImage(row.cover_image_url, row.cover_alt ?? '')
+}
+
+function iconImage(row: SummaryRow, type: ContentType): ImageRef | null {
+  return type === 'download' ? linkedImage(row.icon_url, '') : null
+}
+
+function thumbnail(row: SummaryRow, type: ContentType): ContentSummary['thumbnail'] {
+  const icon = iconImage(row, type)
+  if (icon) return { ...icon, kind: 'icon' }
+  const cover = coverImage(row)
+  if (cover) return { ...cover, kind: 'cover' }
+  const still = type === 'resource' ? videoThumbnailUrl(parseVideoUrl(row.video_url)) : null
+  return still ? { src: still, alt: '', width: 480, height: 360, optimize: false, kind: 'cover' } : null
 }
 
 export function toSummary(row: SummaryRow): ContentSummary | null {
@@ -70,6 +117,8 @@ export function toSummary(row: SummaryRow): ContentSummary | null {
     publishedAt: row.published_at ?? row.updated_at,
     updatedAt: row.updated_at,
     category: row.category ? { name: row.category.name, slug: row.category.slug } : null,
+    thumbnail: thumbnail(row, row.type),
+    hasVideo: row.type === 'resource' && Boolean(row.video_url),
   }
 }
 
@@ -121,14 +170,9 @@ export function toDetail(row: DetailRow): ContentDetail | null {
       ? { name: row.author.display_name, bio: row.author.bio ?? '' }
       : null,
     reviewer: row.reviewer?.display_name ? { name: row.reviewer.display_name } : null,
-    cover: row.cover
-      ? {
-          path: row.cover.storage_path,
-          alt: row.cover.alt_text,
-          width: row.cover.width,
-          height: row.cover.height,
-        }
-      : null,
+    cover: coverImage(row),
+    icon: iconImage(row, summary.type),
+    video: summary.type === 'resource' ? parseVideoUrl(row.video_url) : null,
     tags: (row.content_tags ?? [])
       .map((link) => link.tags)
       .filter((tag): tag is { name: string; slug: string } => Boolean(tag))

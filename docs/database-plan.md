@@ -18,17 +18,18 @@ Articles, tutorials, resources and downloads.
 - `title`, `slug` (unique across all types), `excerpt` (summary), `body` (Markdown)
 - `category_id` → `categories`, `author_id` → `profiles`, `cover_media_id` → `media`
 - SEO: `seo_title`, `seo_description`, `canonical_url`, `noindex`, `keywords text[]`
+- Media: `cover_image_url` (a cover linked from another site, instead of an uploaded `cover_media_id`), `cover_alt` (overrides the library alt text), `icon_url` (downloads), `video_url` (resources: YouTube, Vimeo or a video file). Uploaded icons and videos are stored by their public media URL, so `media` has a single foreign key from `content_items`.
 - Type-specific: `external_url` (resources, external downloads), `file_path`/`file_name`/`file_size`/`file_mime` (uploaded downloads), `version`, `difficulty` (tutorials)
 - Trust: `sources jsonb` (`[{ title, url, publisher? }]`), `ai_generated`, `reviewed_by`, `reviewed_at`
 - `published_at` (set on first publish), `updated_at` (not changed by click counting), `click_count`, `search_vector` (weighted full-text index: title, then summary and keywords, then body)
 
-Constraints: a published row must have `reviewed_at`; published resources need a URL; published downloads need a file or a URL; URLs must be `http(s)`; slugs are lowercase words separated by hyphens.
+Constraints: a published row must have `reviewed_at`; published resources need a website, a video or a cover image; published downloads need a file or a URL; a post has at most one cover source; icons are for downloads and videos for resources; URLs must be `http(s)`; slugs are lowercase words separated by hyphens.
 
 ### `categories`, `tags`
 `name`, `slug` (unique), `description`. Items have at most one category and any number of tags through `content_tags (content_id, tag_id)`.
 
 ### `media`
-Images in the `media` bucket: `storage_path`, `file_name`, `mime_type`, `size_bytes`, `width`, `height`, `alt_text`, `uploaded_by`.
+Images and videos (MP4, WebM) in the `media` bucket: `storage_path`, `file_name`, `mime_type`, `size_bytes`, `width`, `height`, `alt_text`, `uploaded_by`.
 
 ### `redirects`
 Custom short links served at `/go/<slug>`: `slug` (unique), `destination_url`, `is_active`, `click_count`, `notes`.

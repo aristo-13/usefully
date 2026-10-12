@@ -21,8 +21,10 @@ function supabaseMediaPattern(): URL[] {
  * Content Security Policy. Scripts and connections are limited to this site
  * (plus Supabase, which the dashboard uploads to). 'unsafe-inline' is needed
  * for the inline scripts Next.js uses on statically generated pages; nonces
- * would force every page to render per request. Images may come from any
- * HTTPS host because articles can embed external images.
+ * would force every page to render per request. Images and video files may
+ * come from any HTTPS host because posts can link media from other sites; only
+ * the YouTube (privacy-enhanced) and Vimeo players may be embedded. The Supabase
+ * origin is listed explicitly for a local (plain http) development database.
  */
 function contentSecurityPolicy(): string {
   const supabase = supabaseOrigin()
@@ -30,10 +32,11 @@ function contentSecurityPolicy(): string {
     "default-src 'self'",
     `script-src 'self' 'unsafe-inline'${isProduction ? '' : " 'unsafe-eval'"}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https:",
+    `img-src 'self' data: blob: https:${supabase ? ` ${supabase}` : ''}`,
+    `media-src 'self' blob: https:${supabase ? ` ${supabase}` : ''}`,
     "font-src 'self' data:",
     `connect-src 'self'${supabase ? ` ${supabase}` : ''}${isProduction ? '' : ' ws:'}`,
-    "frame-src 'none'",
+    "frame-src https://www.youtube-nocookie.com https://player.vimeo.com",
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",

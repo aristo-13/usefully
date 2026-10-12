@@ -2,7 +2,6 @@ import type { Metadata } from 'next'
 
 import { contentPath, contentTypeConfig, type ContentDetail } from '@/lib/content/types'
 import { absoluteUrl, siteConfig } from '@/lib/site'
-import { mediaPublicUrl } from '@/lib/supabase/config'
 import { truncate } from '@/lib/utils'
 
 export const DEFAULT_OG_IMAGE = { url: '/og.png', width: 1200, height: 630, alt: siteConfig.name }
@@ -63,7 +62,7 @@ export function contentDescription(item: ContentDetail): string {
 export function contentMetadata(item: ContentDetail): Metadata {
   const path = contentPath(item.type, item.slug)
   const description = contentDescription(item)
-  const imageUrl = item.cover ? mediaPublicUrl(item.cover.path) : null
+  const imageUrl = item.cover?.src ?? null
   const images = imageUrl
     ? [
         {
@@ -157,7 +156,7 @@ export function breadcrumbJsonLd(items: BreadcrumbItem[]): JsonLdObject {
 
 export function contentJsonLd(item: ContentDetail): JsonLdObject {
   const url = absoluteUrl(contentPath(item.type, item.slug))
-  const imageUrl = item.cover ? mediaPublicUrl(item.cover.path) : null
+  const imageUrl = item.cover?.src ?? null
   const isDownload = item.type === 'download'
 
   return {

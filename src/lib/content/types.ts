@@ -1,3 +1,5 @@
+import type { VideoSource } from '@/lib/media'
+
 export const CONTENT_TYPES = ['article', 'tutorial', 'resource', 'download'] as const
 export type ContentType = (typeof CONTENT_TYPES)[number]
 
@@ -98,6 +100,15 @@ export type Source = {
 export type CategoryRef = { name: string; slug: string }
 export type TagRef = { name: string; slug: string }
 
+/** An image ready to render. `optimize` is true for files in the site's own media library. */
+export type ImageRef = {
+  src: string
+  alt: string
+  width: number | null
+  height: number | null
+  optimize: boolean
+}
+
 export type ContentSummary = {
   id: string
   type: ContentType
@@ -107,13 +118,10 @@ export type ContentSummary = {
   publishedAt: string
   updatedAt: string
   category: CategoryRef | null
-}
-
-export type CoverImage = {
-  path: string
-  alt: string
-  width: number | null
-  height: number | null
+  /** Shown on cards: a download's icon, otherwise the cover image or a video still. */
+  thumbnail: (ImageRef & { kind: 'icon' | 'cover' }) | null
+  /** A resource that features a video. */
+  hasVideo: boolean
 }
 
 export type ContentDetail = ContentSummary & {
@@ -136,7 +144,11 @@ export type ContentDetail = ContentSummary & {
   reviewedAt: string | null
   author: { name: string; bio: string } | null
   reviewer: { name: string } | null
-  cover: CoverImage | null
+  cover: ImageRef | null
+  /** Downloads only: the app's icon. */
+  icon: ImageRef | null
+  /** Resources only: a featured video. */
+  video: VideoSource | null
   tags: TagRef[]
   categoryId: string | null
 }

@@ -4,6 +4,7 @@ import { cacheLife, cacheTag } from 'next/cache'
 
 import {
   DETAIL_SELECT,
+  SUMMARY_SELECT,
   toDetail,
   toSummaries,
   type DetailRow,
@@ -17,6 +18,7 @@ import {
   type ContentType,
   type Paginated,
 } from '@/lib/content/types'
+import { mediaPublicUrl } from '@/lib/supabase/config'
 import { getPublicClient } from '@/lib/supabase/public'
 
 /** Every public read is tagged with this; admin mutations call updateTag() on it. */
@@ -30,9 +32,6 @@ export const PUBLIC_CONTENT_TAG = 'public-content'
  * - A failed single-item read throws instead, so a real page is never cached
  *   as "not found".
  */
-
-const SUMMARY_SELECT =
-  'id, type, title, slug, excerpt, published_at, updated_at, category:categories(name, slug)'
 
 type QueryError = { message: string; code?: string }
 
@@ -123,7 +122,7 @@ export async function getTagContentPage(
   const response = await supabase
     .from('content_items')
     .select(
-      'id, type, title, slug, excerpt, published_at, updated_at, category:categories(name, slug), content_tags!inner(tag_id)',
+      'id, type, title, slug, excerpt, published_at, updated_at, cover_image_url, cover_alt, icon_url, video_url, category:categories(name, slug), cover:media(storage_path, alt_text, width, height), content_tags!inner(tag_id)',
       { count: 'exact' },
     )
     .eq('status', 'published')
@@ -378,7 +377,7 @@ export type SitemapContent = {
   updatedAt: string
   noindex: boolean
   canonicalUrl: string | null
-  coverPath: string | null
+  coverUrl: string | null
 }
 
 export async function getSitemapContent(): Promise<SitemapContent[]> {
@@ -398,7 +397,7 @@ export async function getSitemapContent(): Promise<SitemapContent[]> {
   for (let offset = 0; offset < 45000; offset += batchSize) {
     const { data, error } = await supabase
       .from('content_items')
-      .select('type, slug, updated_at, noindex, canonical_url, cover:media(storage_path)')
+      .select('type, slug, updated_at, noindex, canonical_url, cover_image_url, cover:media(storage_path)')
       .eq('status', 'published')
       .order('published_at', { ascending: false })
       .order('id')
@@ -419,7 +418,7 @@ export async function getSitemapContent(): Promise<SitemapContent[]> {
         updatedAt: row.updated_at,
         noindex: row.noindex,
         canonicalUrl: row.canonical_url,
-        coverPath: row.cover?.storage_path ?? null,
+        coverUrl: (row.cover ? mediaPublicUrl(row.cover.storage_path) : null) ?? row.cover_image_url,
       })
     }
 
@@ -478,6 +477,18 @@ export async function searchContent(
           row.category_name && row.category_slug
             ? { name: row.category_name, slug: row.category_slug }
             : null,
+        cover: row.cover_path
+          ? {
+              storage_path: row.cover_path,
+              alt_text: row.cover_media_alt ?? '',
+              width: row.cover_width,
+              height: row.cover_height,
+            }
+          : null,
+        cover_image_url: row.cover_image_url,
+        cover_alt: row.cover_alt,
+        icon_url: row.icon_url,
+        video_url: row.video_url,
       },
     ])
     if (summary) results.push({ ...summary, rank: row.rank })

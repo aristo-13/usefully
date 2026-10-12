@@ -19,6 +19,7 @@ import type {
   Option,
   TaxonomyRow,
 } from '@/lib/admin/types'
+import { isVideoType } from '@/lib/media'
 import { mediaPublicUrl } from '@/lib/supabase/config'
 import { createClient } from '@/lib/supabase/server'
 
@@ -92,10 +93,12 @@ export async function getEditableContent(id: string): Promise<EditableContent | 
     .from('content_items')
     .select(
       `id, type, status, title, slug, excerpt, body, category_id, author_id, cover_media_id,
+       cover_image_url, cover_alt, icon_url, video_url,
        seo_title, seo_description, canonical_url, noindex, keywords,
        external_url, file_path, file_name, file_size, file_mime, version, difficulty,
        sources, ai_generated, reviewed_at, published_at, created_at, updated_at, click_count,
        reviewer:profiles!content_items_reviewed_by_fkey(display_name),
+       cover:media(storage_path),
        content_tags(tag_id)`,
     )
     .eq('id', id)
@@ -115,6 +118,11 @@ export async function getEditableContent(id: string): Promise<EditableContent | 
     categoryId: data.category_id,
     authorId: data.author_id,
     coverMediaId: data.cover_media_id,
+    coverMediaUrl: data.cover ? mediaPublicUrl(data.cover.storage_path) : null,
+    coverImageUrl: data.cover_image_url ?? '',
+    coverAlt: data.cover_alt ?? '',
+    iconUrl: data.icon_url ?? '',
+    videoUrl: data.video_url ?? '',
     seoTitle: data.seo_title ?? '',
     seoDescription: data.seo_description ?? '',
     canonicalUrl: data.canonical_url ?? '',
@@ -207,14 +215,26 @@ export async function listMedia(page: number): Promise<{ items: MediaRow[]; tota
 
   const ids = (data ?? []).map((row) => row.id)
   const usage = new Map<string, number>()
+  const addUse = (key: string | null) => {
+    if (key) usage.set(key, (usage.get(key) ?? 0) + 1)
+  }
   if (ids.length) {
-    const { data: covers, error: coverError } = await supabase
-      .from('content_items')
-      .select('cover_media_id')
-      .in('cover_media_id', ids)
-    if (coverError) fail('media usage', coverError)
-    for (const row of covers ?? []) {
-      if (row.cover_media_id) usage.set(row.cover_media_id, (usage.get(row.cover_media_id) ?? 0) + 1)
+    // Covers reference the library by id; icons and videos by public URL.
+    const [covers, linked] = await Promise.all([
+      supabase.from('content_items').select('cover_media_id').in('cover_media_id', ids),
+      supabase
+        .from('content_items')
+        .select('icon_url, video_url')
+        .or('icon_url.not.is.null,video_url.not.is.null')
+        .limit(10000),
+    ])
+    if (covers.error) fail('media usage', covers.error)
+    if (linked.error) fail('media usage', linked.error)
+    const idByUrl = new Map((data ?? []).map((row) => [mediaPublicUrl(row.storage_path), row.id]))
+    for (const row of covers.data ?? []) addUse(row.cover_media_id)
+    for (const row of linked.data ?? []) {
+      if (row.icon_url) addUse(idByUrl.get(row.icon_url) ?? null)
+      if (row.video_url) addUse(idByUrl.get(row.video_url) ?? null)
     }
   }
 
@@ -231,7 +251,7 @@ export async function listMedia(page: number): Promise<{ items: MediaRow[]; tota
       height: row.height,
       altText: row.alt_text,
       createdAt: row.created_at,
-      coverUsage: usage.get(row.id) ?? 0,
+      usage: usage.get(row.id) ?? 0,
     })),
   }
 }
@@ -240,7 +260,7 @@ export async function listMediaOptions(): Promise<MediaOption[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
     .from('media')
-    .select('id, file_name, alt_text, storage_path')
+    .select('id, file_name, alt_text, storage_path, mime_type')
     .order('created_at', { ascending: false })
     .limit(500)
   if (error) fail('media options', error)
@@ -249,6 +269,7 @@ export async function listMediaOptions(): Promise<MediaOption[]> {
     fileName: row.file_name,
     altText: row.alt_text,
     url: mediaPublicUrl(row.storage_path),
+    kind: isVideoType(row.mime_type) ? 'video' : 'image',
   }))
 }
 

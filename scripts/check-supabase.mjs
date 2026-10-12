@@ -86,6 +86,12 @@ const schemaReady = schema.status === 200
 const GRANTS_FIX = 'supabase/migrations/20261012120000_least_privilege_grants.sql'
 const messageOf = (body) => (body && typeof body === 'object' ? String(body.message ?? body.error ?? '') : String(body ?? ''))
 
+if (schemaReady) {
+  const postMedia = await request('/rest/v1/content_items?select=cover_image_url,cover_alt,icon_url,video_url&limit=1')
+  if (postMedia.status === 200) pass('Post media fields exist (linked covers, app icons, videos)')
+  else fail('Post media fields are missing, so pages fail to load.', 'Run supabase/migrations/20261012180000_post_media.sql.')
+}
+
 // 3. Row Level Security as seen by an anonymous visitor.
 console.log('\nWhat anonymous visitors can see')
 if (!schemaReady) {

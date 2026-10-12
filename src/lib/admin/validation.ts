@@ -2,6 +2,7 @@ import { z } from 'zod'
 
 import type { FieldErrors } from '@/lib/admin/action-state'
 import { RESERVED_SLUGS } from '@/lib/content/types'
+import { isMediaLibraryUrl } from '@/lib/supabase/config'
 
 export {
   errorState,
@@ -84,6 +85,22 @@ export const webUrlSchema = z
   )
 
 export const optionalWebUrl = z.union([z.literal(''), webUrlSchema])
+
+const httpsUrl = z.url({ protocol: /^https$/, hostname: z.regexes.domain })
+
+/**
+ * Images and videos shown on the site. Links to other sites must use https, so
+ * pages never load mixed content. Files in the site's own media library use the
+ * Supabase URL as it is (plain http only for a local development database).
+ */
+export const optionalMediaUrl = z.union([
+  z.literal(''),
+  z
+    .string()
+    .trim()
+    .max(2000, 'This URL is too long.')
+    .refine((value) => isMediaLibraryUrl(value) || httpsUrl.safeParse(value).success, 'Enter a full https:// address.'),
+])
 
 export const optionalId = z.union([z.literal(''), z.guid()])
 

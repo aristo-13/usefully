@@ -11,7 +11,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         Skip to content
       </a>
       <SiteHeader />
-      <main id="main" className="flex-1">
+      <main id="main" className="flex-1 *:animate-page-fade">
         {children}
       </main>
       <SiteFooter />

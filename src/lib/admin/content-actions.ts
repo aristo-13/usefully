@@ -11,6 +11,7 @@ import {
   formList,
   formText,
   optionalId,
+  optionalMediaUrl,
   optionalWebUrl,
   parseSourcesJson,
   splitList,
@@ -28,6 +29,7 @@ import {
   type ContentStatus,
   type ContentType,
 } from '@/lib/content/types'
+import { parseVideoUrl } from '@/lib/media'
 import { createClient } from '@/lib/supabase/server'
 import { slugify } from '@/lib/utils'
 
@@ -54,6 +56,13 @@ const contentFormSchema = z.object({
   category_id: optionalId,
   author_id: optionalId,
   cover_media_id: optionalId,
+  cover_image_url: optionalMediaUrl,
+  cover_alt: z.string().trim().max(300, 'Keep the alt text under 300 characters.'),
+  icon_url: optionalMediaUrl,
+  video_url: optionalMediaUrl.refine(
+    (value) => !value || parseVideoUrl(value) !== null,
+    'Use a YouTube or Vimeo video link, or a direct link to an MP4 or WebM file.',
+  ),
   seo_title: z.string().trim().max(70, 'Keep the SEO title under 70 characters.'),
   seo_description: z.string().trim().max(170, 'Keep the meta description under 170 characters.'),
   canonical_url: optionalWebUrl,
@@ -182,6 +191,10 @@ export async function saveContent(_previous: ActionState, formData: FormData): P
     category_id: formText(formData, 'category_id'),
     author_id: formText(formData, 'author_id'),
     cover_media_id: formText(formData, 'cover_media_id'),
+    cover_image_url: formText(formData, 'cover_image_url'),
+    cover_alt: formText(formData, 'cover_alt'),
+    icon_url: formText(formData, 'icon_url'),
+    video_url: formText(formData, 'video_url'),
     seo_title: formText(formData, 'seo_title'),
     seo_description: formText(formData, 'seo_description'),
     canonical_url: formText(formData, 'canonical_url'),
@@ -232,6 +245,11 @@ export async function saveContent(_previous: ActionState, formData: FormData): P
   const filePath = useFile ? input.file_path || null : null
   const externalUrl =
     input.type === 'resource' || (isDownload && !useFile) ? input.external_url || null : null
+  // A linked cover replaces an uploaded one; icons belong to downloads and videos to resources.
+  const coverImageUrl = input.cover_image_url || null
+  const coverMediaId = coverImageUrl ? null : input.cover_media_id || null
+  const iconUrl = isDownload ? input.icon_url || null : null
+  const videoUrl = input.type === 'resource' ? input.video_url || null : null
 
   if (publishing) {
     const errors: FieldErrors = {}
@@ -242,7 +260,9 @@ export async function saveContent(_previous: ActionState, formData: FormData): P
     if (input.body.trim().length < MIN_BODY_LENGTH[input.type]) {
       errors.body = `${label} need at least ${MIN_BODY_LENGTH[input.type]} characters of body text, so the page is useful on its own.`
     }
-    if (input.type === 'resource' && !externalUrl) errors.external_url = 'Add the website address.'
+    if (input.type === 'resource' && !externalUrl && !videoUrl && !coverMediaId && !coverImageUrl) {
+      errors.external_url = 'Add the website address, a video or a cover photo.'
+    }
     if (isDownload && useFile && !filePath) errors.file_path = 'Upload the file, or switch to an external link.'
     if (isDownload && !useFile && !externalUrl) errors.external_url = 'Add the download link.'
     if (input.ai_generated && !input.review_confirmed) {
@@ -262,7 +282,11 @@ export async function saveContent(_previous: ActionState, formData: FormData): P
     body: input.body.replace(/\s+$/, ''),
     category_id: input.category_id || null,
     author_id: input.author_id || null,
-    cover_media_id: input.cover_media_id || null,
+    cover_media_id: coverMediaId,
+    cover_image_url: coverImageUrl,
+    cover_alt: input.cover_alt || null,
+    icon_url: iconUrl,
+    video_url: videoUrl,
     seo_title: input.seo_title || null,
     seo_description: input.seo_description || null,
     canonical_url: input.canonical_url || null,

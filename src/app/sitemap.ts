@@ -9,7 +9,6 @@ import {
   type ContentType,
 } from '@/lib/content/types'
 import { absoluteUrl } from '@/lib/site'
-import { mediaPublicUrl } from '@/lib/supabase/config'
 
 /**
  * Lists only pages worth indexing: sections and categories with published
@@ -50,7 +49,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (item.noindex) continue
     const url = absoluteUrl(contentPath(item.type, item.slug))
     if (item.canonicalUrl && item.canonicalUrl !== url) continue
-    const image = item.coverPath ? mediaPublicUrl(item.coverPath) : null
+    const image = item.coverUrl
     entries.push({ url, lastModified: item.updatedAt, ...(image ? { images: [image] } : {}) })
   }
 

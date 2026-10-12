@@ -94,7 +94,7 @@ export function LoadMore({
           {items.map((item) => (
             <li key={item.id} className={layout === 'categories' ? undefined : 'border-b border-border'}>
               {'type' in item ? (
-                <ContentCard item={item} showType={showType} headingLevel={headingLevel} />
+                <ContentCard item={item} showType={showType} headingLevel={headingLevel} layout={layout === 'categories' ? 'list' : layout} />
               ) : (
                 <CategoryCard category={item} />
               )}

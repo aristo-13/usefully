@@ -16,7 +16,7 @@ export default function NotFound() {
   return (
     <>
       <SiteHeader />
-      <main id="main" className="flex-1">
+      <main id="main" className="flex-1 *:animate-page-fade">
         <Container size="narrow" className="py-16 md:py-24">
           <p className="text-sm font-medium text-muted-foreground">404</p>
           <h1 className="mt-2 font-heading text-3xl font-semibold text-foreground">Page not found</h1>

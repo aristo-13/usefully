@@ -45,3 +45,13 @@ export function mediaPublicUrl(storagePath: string): string | null {
   const encodedPath = storagePath.split('/').map(encodeURIComponent).join('/')
   return `${config.url}/storage/v1/object/public/media/${encodedPath}`
 }
+
+/**
+ * Whether a URL points into the `media` bucket. Only those images go through
+ * next/image optimisation; images linked from other sites are shown as they
+ * are, so the optimiser never fetches arbitrary URLs.
+ */
+export function isMediaLibraryUrl(url: string): boolean {
+  const config = getSupabaseConfig()
+  return Boolean(config) && url.startsWith(`${config?.url}/storage/v1/object/public/media/`)
+}

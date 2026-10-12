@@ -2,10 +2,12 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Download, ExternalLink } from 'lucide-react'
 
+import { AppIcon } from '@/components/content/app-icon'
 import { Breadcrumbs } from '@/components/content/breadcrumbs'
 import { ContentList } from '@/components/content/content-card'
 import { MarkdownContent } from '@/components/content/markdown-content'
 import { ShareButton } from '@/components/content/share-button'
+import { VideoPlayer } from '@/components/content/video-player'
 import { JsonLd } from '@/components/seo/json-ld'
 import { buttonVariants } from '@/components/ui/button'
 import { Container } from '@/components/ui/container'
@@ -15,11 +17,11 @@ import {
   contentTypeConfig,
   difficultyLabels,
   type ContentDetail,
+  type ImageRef,
   type Source,
 } from '@/lib/content/types'
 import { extractHeadings, type Heading } from '@/lib/markdown'
 import { contentJsonLd } from '@/lib/seo'
-import { mediaPublicUrl } from '@/lib/supabase/config'
 import {
   fileTypeLabel,
   formatBytes,
@@ -234,28 +236,36 @@ function AuthorBox({ author }: { author: NonNullable<ContentDetail['author']> })
   )
 }
 
-function CoverImage({ item }: { item: ContentDetail }) {
-  const src = item.cover ? mediaPublicUrl(item.cover.path) : null
-  if (!item.cover || !src) return null
-  const { width, height, alt } = item.cover
+function CoverImage({ image }: { image: ImageRef }) {
   const sizes = '(min-width: 1024px) 48rem, 100vw'
 
   return (
     <figure className="mt-8 overflow-hidden rounded-lg border border-border bg-muted">
-      {width && height ? (
+      {image.width && image.height ? (
         <Image
-          src={src}
-          alt={alt}
-          width={width}
-          height={height}
+          src={image.src}
+          alt={image.alt}
+          width={image.width}
+          height={image.height}
           sizes={sizes}
+          unoptimized={!image.optimize}
           loading="eager"
           fetchPriority="high"
           className="h-auto w-full"
         />
       ) : (
+        // Linked images have no known size: show the whole image in a fixed frame.
         <div className="relative aspect-[1.91/1]">
-          <Image src={src} alt={alt} fill sizes={sizes} loading="eager" fetchPriority="high" className="object-cover" />
+          <Image
+            src={image.src}
+            alt={image.alt}
+            fill
+            sizes={sizes}
+            unoptimized={!image.optimize}
+            loading="eager"
+            fetchPriority="high"
+            className="object-contain"
+          />
         </div>
       )}
     </figure>
@@ -295,9 +305,18 @@ export async function ContentArticle({ item, preview = false }: { item: ContentD
                 </>
               ) : null}
             </p>
-            <h1 className="mt-2 font-heading text-3xl leading-tight font-semibold text-foreground md:text-[2.6rem]">
-              {item.title}
-            </h1>
+            {item.icon ? (
+              <div className="mt-3 flex items-center gap-4">
+                <AppIcon image={item.icon} size="lg" />
+                <h1 className="font-heading text-3xl leading-tight font-semibold text-foreground md:text-[2.6rem]">
+                  {item.title}
+                </h1>
+              </div>
+            ) : (
+              <h1 className="mt-2 font-heading text-3xl leading-tight font-semibold text-foreground md:text-[2.6rem]">
+                {item.title}
+              </h1>
+            )}
             {item.excerpt ? (
               <p className="mt-4 text-lg leading-relaxed text-muted-foreground md:text-xl">{item.excerpt}</p>
             ) : null}
@@ -310,7 +329,11 @@ export async function ContentArticle({ item, preview = false }: { item: ContentD
           {item.type === 'resource' ? <ResourcePanel item={item} preview={preview} /> : null}
           {item.type === 'download' ? <DownloadPanel item={item} preview={preview} /> : null}
 
-          <CoverImage item={item} />
+          {item.video ? (
+            <VideoPlayer video={item.video} title={item.title} poster={item.cover} className="mt-8" />
+          ) : item.cover ? (
+            <CoverImage image={item.cover} />
+          ) : null}
 
           {showToc ? (
             <TableOfContents

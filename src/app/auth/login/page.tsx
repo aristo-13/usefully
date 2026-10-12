@@ -65,7 +65,7 @@ async function LoginPanel({ searchParams }: Pick<PageProps<'/auth/login'>, 'sear
 
 export default function LoginPage({ searchParams }: PageProps<'/auth/login'>) {
   return (
-    <main id="main" className="flex flex-1 items-center justify-center bg-muted/40 px-4 py-12">
+    <main id="main" className="flex flex-1 items-center justify-center bg-muted/40 px-4 py-12 *:animate-page-fade">
       <div className="w-full max-w-sm">
         <Link href="/" className="mx-auto block w-fit">
           <Logo height={34} />

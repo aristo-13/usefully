@@ -1,11 +1,11 @@
 'use client'
 
-import Image from 'next/image'
 import Link from 'next/link'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { ExternalLink, Eye, Plus, Upload, X } from 'lucide-react'
 
 import { CharacterCount, Field, FormMessage, fieldAria, useActionForm } from '@/components/admin/form'
+import { MediaField } from '@/components/admin/media-field'
 import { StatusBadge } from '@/components/admin/ui'
 import { buttonVariants } from '@/components/ui/button'
 import { Input, Select, Textarea } from '@/components/ui/input'
@@ -194,46 +194,6 @@ function DownloadFileField({
   )
 }
 
-function CoverField({ media, initialId }: { media: MediaOption[]; initialId: string | null }) {
-  const [coverId, setCoverId] = useState(initialId ?? '')
-  const selected = media.find((item) => item.id === coverId)
-
-  return (
-    <div className="space-y-2">
-      <Select
-        id="cover_media_id"
-        name="cover_media_id"
-        value={coverId}
-        onChange={(event) => setCoverId(event.target.value)}
-        aria-describedby="cover_media_id-hint"
-      >
-        <option value="">No cover image</option>
-        {media.map((item) => (
-          <option key={item.id} value={item.id}>
-            {item.fileName}
-            {item.altText ? ` – ${item.altText}` : ''}
-          </option>
-        ))}
-      </Select>
-      {selected?.url ? (
-        <div className="relative aspect-[1.91/1] overflow-hidden rounded-md border border-border bg-muted">
-          <Image src={selected.url} alt="" fill sizes="320px" className="object-cover" />
-        </div>
-      ) : null}
-      {selected && !selected.altText ? (
-        <p className="text-xs font-medium text-warning">This image has no alt text. Add it in the media library.</p>
-      ) : null}
-      <p id="cover_media_id-hint" className="text-xs text-muted-foreground">
-        Also used when the page is shared. Upload images in the{' '}
-        <Link href="/admin/media" className="text-link underline">
-          media library
-        </Link>
-        .
-      </p>
-    </div>
-  )
-}
-
 export function ContentForm({
   type,
   item,
@@ -399,7 +359,7 @@ export function ContentForm({
               name="external_url"
               label="Website address"
               error={errors.external_url}
-              hint="Required before publishing. Visitors reach it through a /go/ link, which counts clicks."
+              hint="Visitors reach it through a /go/ link, which counts clicks. Needed before publishing unless the resource has a video or a cover photo."
             >
               <Input
                 id="external_url"
@@ -784,9 +744,53 @@ export function ContentForm({
             {errors.tag_ids ? <p className="text-xs font-medium text-destructive">{errors.tag_ids}</p> : null}
           </section>
 
-          <section className="space-y-2 rounded-lg border border-border bg-card p-4">
-            <h2 className="text-sm font-medium text-foreground">Cover image</h2>
-            <CoverField media={media} initialId={item?.coverMediaId ?? null} />
+          {type === 'download' ? (
+            <section className="rounded-lg border border-border bg-card p-4">
+              <MediaField
+                kind="icon"
+                label="App icon"
+                hint="Shown next to the title on the page and on cards."
+                media={media}
+                initial={{ url: item?.iconUrl ?? '' }}
+                errors={{ url: errors.icon_url }}
+                onChange={() => setDirty(true)}
+              />
+            </section>
+          ) : null}
+
+          {type === 'resource' ? (
+            <section className="rounded-lg border border-border bg-card p-4">
+              <MediaField
+                kind="video"
+                label="Video"
+                hint="A trending or featured video. Plays on the page; the cover image is shown until it starts."
+                media={media}
+                initial={{ url: item?.videoUrl ?? '' }}
+                errors={{ url: errors.video_url }}
+                onChange={() => setDirty(true)}
+              />
+            </section>
+          ) : null}
+
+          <section className="rounded-lg border border-border bg-card p-4">
+            <MediaField
+              kind="cover"
+              label={type === 'resource' ? 'Cover image or photo' : 'Cover image'}
+              hint={
+                type === 'download'
+                  ? 'Shown on the page, for example a screenshot, and when the page is shared.'
+                  : 'Shown on cards, on the page and when the page is shared.'
+              }
+              media={media}
+              initial={{
+                id: item?.coverMediaId,
+                libraryUrl: item?.coverMediaUrl,
+                url: item?.coverImageUrl ?? '',
+                alt: item?.coverAlt ?? '',
+              }}
+              errors={{ url: errors.cover_image_url ?? errors.cover_media_id, alt: errors.cover_alt }}
+              onChange={() => setDirty(true)}
+            />
           </section>
         </div>
       </div>

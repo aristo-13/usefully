@@ -50,6 +50,8 @@ export type Database = {
           canonical_url: string | null
           category_id: string | null
           click_count: number
+          cover_alt: string | null
+          cover_image_url: string | null
           cover_media_id: string | null
           created_at: string
           difficulty: string | null
@@ -59,6 +61,7 @@ export type Database = {
           file_name: string | null
           file_path: string | null
           file_size: number | null
+          icon_url: string | null
           id: string
           keywords: string[]
           noindex: boolean
@@ -75,6 +78,7 @@ export type Database = {
           type: string
           updated_at: string
           version: string | null
+          video_url: string | null
         }
         Insert: {
           ai_generated?: boolean
@@ -83,6 +87,8 @@ export type Database = {
           canonical_url?: string | null
           category_id?: string | null
           click_count?: number
+          cover_alt?: string | null
+          cover_image_url?: string | null
           cover_media_id?: string | null
           created_at?: string
           difficulty?: string | null
@@ -92,6 +98,7 @@ export type Database = {
           file_name?: string | null
           file_path?: string | null
           file_size?: number | null
+          icon_url?: string | null
           id?: string
           keywords?: string[]
           noindex?: boolean
@@ -108,6 +115,7 @@ export type Database = {
           type: string
           updated_at?: string
           version?: string | null
+          video_url?: string | null
         }
         Update: {
           ai_generated?: boolean
@@ -116,6 +124,8 @@ export type Database = {
           canonical_url?: string | null
           category_id?: string | null
           click_count?: number
+          cover_alt?: string | null
+          cover_image_url?: string | null
           cover_media_id?: string | null
           created_at?: string
           difficulty?: string | null
@@ -125,6 +135,7 @@ export type Database = {
           file_name?: string | null
           file_path?: string | null
           file_size?: number | null
+          icon_url?: string | null
           id?: string
           keywords?: string[]
           noindex?: boolean
@@ -141,6 +152,7 @@ export type Database = {
           type?: string
           updated_at?: string
           version?: string | null
+          video_url?: string | null
         }
         Relationships: [
           {
@@ -378,7 +390,14 @@ export type Database = {
         Returns: {
           category_name: string | null
           category_slug: string | null
+          cover_alt: string | null
+          cover_height: number | null
+          cover_image_url: string | null
+          cover_media_alt: string | null
+          cover_path: string | null
+          cover_width: number | null
           excerpt: string
+          icon_url: string | null
           id: string
           published_at: string
           rank: number
@@ -386,6 +405,7 @@ export type Database = {
           title: string
           type: string
           updated_at: string
+          video_url: string | null
         }[]
       }
       tag_counts: {

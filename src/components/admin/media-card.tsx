@@ -36,12 +36,15 @@ function CopyButton({ value, label }: { value: string; label: string }) {
 
 export function MediaCard({ item }: { item: MediaRow }) {
   const { state, pending, onSubmit } = useActionForm(updateMediaAlt.bind(null, item.id))
-  const markdown = item.url ? `![${item.altText.replace(/[[\]]/g, '')}](${item.url})` : ''
+  const isVideo = item.mimeType.startsWith('video/')
+  const markdown = item.url && !isVideo ? `![${item.altText.replace(/[[\]]/g, '')}](${item.url})` : ''
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-lg border border-border bg-card">
       <div className="relative aspect-[4/3] bg-muted">
-        {item.url ? (
+        {item.url && isVideo ? (
+          <video src={item.url} controls preload="metadata" aria-label={item.fileName} className="size-full bg-black object-contain" />
+        ) : item.url ? (
           <Image src={item.url} alt={item.altText} fill sizes="(min-width: 1280px) 20rem, (min-width: 640px) 50vw, 100vw" className="object-contain" />
         ) : null}
       </div>
@@ -53,7 +56,7 @@ export function MediaCard({ item }: { item: MediaRow }) {
           <p className="text-xs text-muted-foreground">
             {item.width && item.height ? `${item.width}×${item.height} · ` : ''}
             {formatBytes(item.sizeBytes)}
-            {item.coverUsage ? ` · cover of ${item.coverUsage} ${item.coverUsage === 1 ? 'item' : 'items'}` : ''}
+            {item.usage ? ` · used by ${item.usage} ${item.usage === 1 ? 'item' : 'items'}` : ''}
           </p>
         </div>
 
@@ -74,7 +77,7 @@ export function MediaCard({ item }: { item: MediaRow }) {
         {item.url ? (
           <div className="flex flex-wrap gap-2">
             <CopyButton value={item.url} label="Copy URL" />
-            <CopyButton value={markdown} label="Copy Markdown" />
+            {markdown ? <CopyButton value={markdown} label="Copy Markdown" /> : null}
           </div>
         ) : null}
 
@@ -83,8 +86,8 @@ export function MediaCard({ item }: { item: MediaRow }) {
             action={deleteMedia.bind(null, item.id)}
             size="sm"
             confirmMessage={`Delete ${item.fileName}? ${
-              item.coverUsage ? `It is the cover image of ${item.coverUsage} item(s), which will lose their cover. ` : ''
-            }Any article text that embeds this image will show a broken image.`}
+              item.usage ? `It is used by ${item.usage} item(s) as a cover, icon or video, which will lose it. ` : ''
+            }${isVideo ? '' : 'Any article text that embeds this image will show a broken image.'}`}
           />
         </div>
       </div>
