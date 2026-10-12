@@ -9,6 +9,7 @@ import { getDashboardData } from '@/lib/admin/queries'
 import type { AdminContentRow } from '@/lib/admin/types'
 import { requireAdmin } from '@/lib/auth'
 import { CONTENT_STATUSES, CONTENT_TYPES, contentTypeConfig, statusLabels } from '@/lib/content/types'
+import { siteUrlConfigured } from '@/lib/site'
 import { cn, formatShortDate } from '@/lib/utils'
 
 export const metadata: Metadata = { title: 'Dashboard' }
@@ -72,7 +73,7 @@ async function Dashboard() {
           published pages show a proper author byline.
         </Notice>
       ) : null}
-      {!process.env.NEXT_PUBLIC_SITE_URL ? (
+      {!siteUrlConfigured ? (
         <Notice tone="warning">
           NEXT_PUBLIC_SITE_URL is not set, so canonical URLs and the sitemap use a placeholder address. Set it to your
           domain before going live.

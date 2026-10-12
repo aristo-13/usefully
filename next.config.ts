@@ -1,11 +1,16 @@
 import type { NextConfig } from 'next'
 
+import { adsense } from './src/lib/ads'
+import { setting } from './src/lib/env'
+
 const isProduction = process.env.NODE_ENV === 'production'
-const servedOverHttps = process.env.NEXT_PUBLIC_SITE_URL?.startsWith('https://') ?? false
+const servedOverHttps = setting(process.env.NEXT_PUBLIC_SITE_URL)?.startsWith('https://') ?? false
+const adsEnabled = adsense.client !== null
 
 function supabaseOrigin(): string | null {
+  const url = setting(process.env.NEXT_PUBLIC_SUPABASE_URL)
   try {
-    return process.env.NEXT_PUBLIC_SUPABASE_URL ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).origin : null
+    return url ? new URL(url).origin : null
   } catch {
     return null
   }
@@ -25,18 +30,25 @@ function supabaseMediaPattern(): URL[] {
  * come from any HTTPS host because posts can link media from other sites; only
  * the YouTube (privacy-enhanced) and Vimeo players may be embedded. The Supabase
  * origin is listed explicitly for a local (plain http) development database.
+ *
+ * With AdSense on, scripts, frames and connections may also use any HTTPS host:
+ * the ad code loads from many Google hosts, including country domains such as
+ * adservice.google.com.gh, that an allowlist cannot cover, and ads render in
+ * frames from Google's ad servers. Since inline scripts are already allowed,
+ * this adds little exposure.
  */
 function contentSecurityPolicy(): string {
   const supabase = supabaseOrigin()
+  const ads = adsEnabled ? ' https:' : ''
   const directives = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${isProduction ? '' : " 'unsafe-eval'"}`,
+    `script-src 'self' 'unsafe-inline'${ads}${isProduction ? '' : " 'unsafe-eval'"}`,
     "style-src 'self' 'unsafe-inline'",
     `img-src 'self' data: blob: https:${supabase ? ` ${supabase}` : ''}`,
     `media-src 'self' blob: https:${supabase ? ` ${supabase}` : ''}`,
     "font-src 'self' data:",
-    `connect-src 'self'${supabase ? ` ${supabase}` : ''}${isProduction ? '' : ' ws:'}`,
-    "frame-src https://www.youtube-nocookie.com https://player.vimeo.com",
+    `connect-src 'self'${supabase ? ` ${supabase}` : ''}${ads}${isProduction ? '' : ' ws:'}`,
+    adsEnabled ? 'frame-src https:' : 'frame-src https://www.youtube-nocookie.com https://player.vimeo.com',
     "frame-ancestors 'none'",
     "object-src 'none'",
     "base-uri 'self'",
@@ -52,7 +64,8 @@ const securityHeaders = [
   { key: 'X-Content-Type-Options', value: 'nosniff' },
   { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
   { key: 'X-Frame-Options', value: 'DENY' },
-  { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+  // Ad clicks open the advertiser's site in a new window; allow-popups keeps them working.
+  { key: 'Cross-Origin-Opener-Policy', value: adsEnabled ? 'same-origin-allow-popups' : 'same-origin' },
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()' },
   // Browsers only honour HSTS over HTTPS. Add includeSubDomains/preload once every subdomain serves HTTPS.
   ...(isProduction ? [{ key: 'Strict-Transport-Security', value: 'max-age=63072000' }] : []),

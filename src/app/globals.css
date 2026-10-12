@@ -240,4 +240,25 @@
   .prose-content strong {
     font-weight: 650;
   }
+
+  /* Blocks placed between sections ("Also read", ads) keep their own styling. */
+  .prose-content .interlude p {
+    margin: 0;
+  }
+  .prose-content .interlude a {
+    color: inherit;
+    text-decoration: none;
+  }
+
+  /* An ad unit takes space only once AdSense has filled it, so unfilled or
+     blocked units leave no gap (the unit itself must stay displayed to load). */
+  .ad-slot {
+    margin-block: 2.5rem;
+  }
+  .ad-slot:not(:has(ins[data-ad-status='filled'])) {
+    margin-block: 0;
+  }
+  .ad-slot:not(:has(ins[data-ad-status='filled'])) > p {
+    display: none;
+  }
 }

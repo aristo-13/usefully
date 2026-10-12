@@ -6,10 +6,10 @@ import { AdminPageSkeleton } from '@/components/admin/ui'
 
 export const metadata: Metadata = { title: 'New article' }
 
-export default function NewArticlePage() {
+export default function NewArticlePage({ searchParams }: PageProps<'/admin/articles/new'>) {
   return (
     <Suspense fallback={<AdminPageSkeleton title="New article" />}>
-      <ContentEditor type="article" />
+      <ContentEditor type="article" searchParams={searchParams} />
     </Suspense>
   )
 }

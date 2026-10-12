@@ -5,6 +5,7 @@ import { ArrowRight } from 'lucide-react'
 import { ContentList } from '@/components/content/content-card'
 import { EmptyState } from '@/components/content/listing'
 import { LoadMore } from '@/components/content/load-more'
+import { PickUpWhereYouLeftOff } from '@/components/engagement/pick-up'
 import { JsonLd } from '@/components/seo/json-ld'
 import { SearchBox } from '@/components/site/search-box'
 import { Container } from '@/components/ui/container'
@@ -76,6 +77,8 @@ export default async function HomePage() {
   return (
     <>
       <JsonLd data={websiteJsonLd()} />
+      {/* Returning visitors: their latest unfinished page. */}
+      <PickUpWhereYouLeftOff />
       <h1 className="sr-only">
         {siteConfig.name}: {siteConfig.description}
       </h1>

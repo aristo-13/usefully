@@ -3,8 +3,10 @@ import { Suspense } from 'react'
 
 import { ProfileForm, PasswordForm } from '@/components/admin/settings-forms'
 import { AdminPageSkeleton, PageHeader, Panel } from '@/components/admin/ui'
+import { adsense } from '@/lib/ads'
+import { aiSetup } from '@/lib/ai/writer'
 import { requireAdmin } from '@/lib/auth'
-import { siteConfig } from '@/lib/site'
+import { siteConfig, siteUrlConfigured } from '@/lib/site'
 
 export const metadata: Metadata = { title: 'Settings' }
 
@@ -18,7 +20,7 @@ export default function AdminSettingsPage() {
 
 async function Settings() {
   const admin = await requireAdmin()
-  const siteUrlConfigured = Boolean(process.env.NEXT_PUBLIC_SITE_URL)
+  const ai = aiSetup()
 
   return (
     <>
@@ -52,6 +54,24 @@ async function Settings() {
               <div>
                 <dt className="text-muted-foreground">Description</dt>
                 <dd className="text-foreground">{siteConfig.description}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">AI writer</dt>
+                <dd className="font-medium text-foreground">{ai.enabled ? 'On' : 'Off'}</dd>
+                <dd className="mt-1 text-xs text-muted-foreground">{ai.message}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Google AdSense</dt>
+                <dd className="font-medium break-all text-foreground">
+                  {adsense.client ? `On (${adsense.client})` : 'Off'}
+                </dd>
+                <dd className="mt-1 text-xs text-muted-foreground">
+                  {adsense.client
+                    ? adsense.inArticleSlot
+                      ? 'Auto ads plus in-article ads between sections. ads.txt is published.'
+                      : 'Auto ads only. Add NEXT_PUBLIC_ADSENSE_SLOT_IN_ARTICLE for ads between sections.'
+                    : 'Set NEXT_PUBLIC_ADSENSE_CLIENT_ID to your publisher ID (ca-pub-…) and rebuild.'}
+                </dd>
               </div>
             </dl>
           </Panel>

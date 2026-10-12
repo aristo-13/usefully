@@ -1,7 +1,7 @@
 'use client'
 
 import Image from 'next/image'
-import { useEffect, useState, useTransition } from 'react'
+import { useEffect, useState, useTransition, type ReactNode } from 'react'
 import { Upload, X } from 'lucide-react'
 
 import { fieldAria } from '@/components/admin/form'
@@ -81,6 +81,7 @@ export function MediaField({
   initial,
   errors = {},
   onChange,
+  altAction,
 }: {
   kind: Kind
   label: string
@@ -89,6 +90,8 @@ export function MediaField({
   initial: { id?: string | null; url: string; libraryUrl?: string | null; alt?: string }
   errors?: { url?: string; alt?: string }
   onChange?: () => void
+  /** Covers only: a control next to the alt text label, given the image's web address (null while none is ready). */
+  altAction?: (props: { imageUrl: string | null; alt: string; setAlt: (alt: string) => void }) => ReactNode
 }) {
   const copy = COPY[kind]
   const [value, setValue] = useState<Value>(() => initialValue(kind, initial))
@@ -164,6 +167,8 @@ export function MediaField({
     kind !== 'video' || !previewSrc ? null : localPreview ? { provider: 'file', url: localPreview } : parseVideoUrl(previewSrc)
   const error = problem ?? errors.url
   const field = copy.field
+  // The saved image (not a local preview), which the AI writer can open to describe it.
+  const webImage = !uploading && !localPreview && previewSrc && /^https?:\/\//.test(previewSrc) ? previewSrc : null
 
   return (
     <fieldset className="space-y-3">
@@ -346,9 +351,19 @@ export function MediaField({
 
       {kind === 'cover' ? (
         <div className="space-y-1.5">
-          <label htmlFor="cover_alt" className="text-sm font-medium text-foreground">
-            Alt text
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <label htmlFor="cover_alt" className="text-sm font-medium text-foreground">
+              Alt text
+            </label>
+            {altAction?.({
+              imageUrl: webImage,
+              alt,
+              setAlt: (next) => {
+                setAlt(next)
+                onChange?.()
+              },
+            })}
+          </div>
           <Input
             id="cover_alt"
             name="cover_alt"

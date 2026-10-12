@@ -55,6 +55,22 @@ export type EditableContent = {
 
 export type Option = { id: string; name: string }
 
+/** Used to spot trends that already have a post. */
+export type PostTitle = { id: string; type: ContentType; status: ContentStatus; title: string }
+
+/** Starting values for a new post, for example one started from the Trends page. */
+export type ContentDraft = {
+  title: string
+  keywords: string[]
+  source: Source | null
+  videoUrl: string
+  /** Why the topic is trending, for the AI writer. Empty for posts not started from Trends. */
+  context: string
+  region: 'ghana' | 'global' | null
+  /** Start "Write the whole post" with AI as soon as the editor opens. */
+  autoDraft: boolean
+}
+
 export type TaxonomyRow = {
   id: string
   name: string

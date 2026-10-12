@@ -1,22 +1,29 @@
 import Image from 'next/image'
 import Link from 'next/link'
+import type { ReactNode } from 'react'
 import { Download, ExternalLink } from 'lucide-react'
 
+import { AdSlot } from '@/components/ads/ad-slot'
 import { AppIcon } from '@/components/content/app-icon'
 import { Breadcrumbs } from '@/components/content/breadcrumbs'
 import { ContentList } from '@/components/content/content-card'
 import { MarkdownContent } from '@/components/content/markdown-content'
 import { ShareButton } from '@/components/content/share-button'
 import { VideoPlayer } from '@/components/content/video-player'
+import { AlsoRead } from '@/components/engagement/also-read'
+import { PickUpWhereYouLeftOff } from '@/components/engagement/pick-up'
+import { ReadingProgress } from '@/components/engagement/reading-progress'
 import { JsonLd } from '@/components/seo/json-ld'
 import { buttonVariants } from '@/components/ui/button'
 import { Container } from '@/components/ui/container'
+import { adsense } from '@/lib/ads'
 import { getRelatedContent } from '@/lib/content/queries'
 import {
   contentPath,
   contentTypeConfig,
   difficultyLabels,
   type ContentDetail,
+  type ContentSummary,
   type ImageRef,
   type Source,
 } from '@/lib/content/types'
@@ -104,11 +111,13 @@ function ResourcePanel({ item, preview }: { item: ContentDetail; preview: boolea
       </div>
       <a
         href={preview ? item.externalUrl : `/go/${item.slug}`}
+        target="_blank"
         rel="nofollow noopener"
         className={buttonVariants({ size: 'lg', className: 'px-4' })}
       >
         Visit {hostnameOf(item.externalUrl)}
         <ExternalLink aria-hidden />
+        <span className="sr-only"> (opens in a new tab)</span>
       </a>
     </div>
   )
@@ -183,8 +192,14 @@ function SourcesList({ sources }: { sources: Source[] }) {
       <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm">
         {sources.map((source, index) => (
           <li key={`${source.url}-${index}`} className="text-muted-foreground">
-            <a href={source.url} rel="noopener noreferrer" className="text-link underline underline-offset-2">
+            <a
+              href={source.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-link underline underline-offset-2"
+            >
               {source.title}
+              <span className="sr-only"> (opens in a new tab)</span>
             </a>
             {source.publisher ? <span>, {source.publisher}</span> : null}
           </li>
@@ -272,13 +287,33 @@ function CoverImage({ image }: { image: ImageRef }) {
   )
 }
 
+/**
+ * What sits between sections of the body: "Also read" links to related pages
+ * and, with AdSense set up, in-article ads (MarkdownContent spaces them out).
+ */
+function interludesFor(related: ContentSummary[]): ReactNode[] {
+  // Pages beyond the "Related reading" grid first, so the links add something new.
+  const links = (related.length > 3 ? related.slice(3) : related).slice(0, 2)
+  const ad = (key: string) =>
+    adsense.client && adsense.inArticleSlot ? (
+      <AdSlot key={key} client={adsense.client} slot={adsense.inArticleSlot} />
+    ) : null
+  return [
+    links[0] ? <AlsoRead key="also-1" item={links[0]} /> : null,
+    ad('ad-1'),
+    links[1] ? <AlsoRead key="also-2" item={links[1]} /> : null,
+    ad('ad-2'),
+  ].filter((block) => block !== null)
+}
+
 export async function ContentArticle({ item, preview = false }: { item: ContentDetail; preview?: boolean }) {
   const config = contentTypeConfig[item.type]
   const headings = extractHeadings(item.body)
   const showToc = headings.length >= 3
+  const path = contentPath(item.type, item.slug)
   const related = preview
     ? []
-    : await getRelatedContent({ id: item.id, type: item.type, categoryId: item.categoryId })
+    : await getRelatedContent({ id: item.id, type: item.type, categoryId: item.categoryId }, 6)
 
   return (
     <Container className="py-8 md:py-10">
@@ -286,6 +321,20 @@ export async function ContentArticle({ item, preview = false }: { item: ContentD
         <>
           <Breadcrumbs items={[{ name: config.plural, path: config.path }, { name: item.title }]} />
           <JsonLd data={contentJsonLd(item)} />
+          <ReadingProgress
+            key={path}
+            path={path}
+            title={item.title}
+            label={config.label}
+            minutes={readingTimeMinutes(item.body)}
+            bodyId="article-body"
+            next={related.map((entry) => ({
+              path: contentPath(entry.type, entry.slug),
+              title: entry.title,
+              label: contentTypeConfig[entry.type].label,
+            }))}
+          />
+          <PickUpWhereYouLeftOff key={`pick-up-${path}`} path={path} bodyId="article-body" />
         </>
       )}
 
@@ -322,7 +371,7 @@ export async function ContentArticle({ item, preview = false }: { item: ContentD
             ) : null}
             <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
               <ArticleMeta item={item} />
-              {preview ? null : <ShareButton path={contentPath(item.type, item.slug)} title={item.title} withLabel />}
+              {preview ? null : <ShareButton path={path} title={item.title} withLabel />}
             </div>
           </header>
 
@@ -343,7 +392,12 @@ export async function ContentArticle({ item, preview = false }: { item: ContentD
             />
           ) : null}
 
-          <MarkdownContent source={item.body} className="mt-8" />
+          <MarkdownContent
+            id="article-body"
+            source={item.body}
+            className="mt-8"
+            interludes={preview ? [] : interludesFor(related)}
+          />
 
           {item.sources.length ? <SourcesList sources={item.sources} /> : null}
           <ReviewNote item={item} />
@@ -364,7 +418,7 @@ export async function ContentArticle({ item, preview = false }: { item: ContentD
             Related reading
           </h2>
           <div className="mt-2">
-            <ContentList items={related} showType headingLevel="h3" layout="grid-3" />
+            <ContentList items={related.slice(0, 3)} showType headingLevel="h3" layout="grid-3" />
           </div>
         </section>
       ) : null}

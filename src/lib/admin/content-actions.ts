@@ -2,6 +2,7 @@
 
 import { refresh, updateTag } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { after } from 'next/server'
 import { z } from 'zod'
 
 import {
@@ -25,11 +26,13 @@ import { PUBLIC_CONTENT_TAG } from '@/lib/content/queries'
 import {
   CONTENT_TYPES,
   DIFFICULTIES,
+  contentPath,
   contentTypeConfig,
   type ContentStatus,
   type ContentType,
 } from '@/lib/content/types'
 import { parseVideoUrl } from '@/lib/media'
+import { notifySearchEngines } from '@/lib/search-engines'
 import { createClient } from '@/lib/supabase/server'
 import { slugify } from '@/lib/utils'
 
@@ -225,11 +228,11 @@ export async function saveContent(_previous: ActionState, formData: FormData): P
   const input = parsed.data
   const supabase = await createClient()
 
-  let existing: { id: string; type: string; status: ContentStatus; file_path: string | null } | null = null
+  let existing: { id: string; type: string; status: ContentStatus; slug: string; file_path: string | null } | null = null
   if (input.id) {
     const { data, error } = await supabase
       .from('content_items')
-      .select('id, type, status, file_path')
+      .select('id, type, status, slug, file_path')
       .eq('id', input.id)
       .maybeSingle()
     if (error) return databaseError(error)
@@ -324,8 +327,15 @@ export async function saveContent(_previous: ActionState, formData: FormData): P
   }
 
   // Public pages only change when published content is involved.
-  if (publishing || existing?.status === 'published') updateTag(PUBLIC_CONTENT_TAG)
-  else refresh()
+  if (publishing || existing?.status === 'published') {
+    updateTag(PUBLIC_CONTENT_TAG)
+    // Bing and other IndexNow engines recrawl the page (and its old address after a slug change).
+    const paths = new Set([contentPath(input.type, input.slug)])
+    if (existing && existing.slug !== input.slug) paths.add(contentPath(input.type, existing.slug))
+    after(() => notifySearchEngines([...paths]))
+  } else {
+    refresh()
+  }
 
   if (tagError) console.error(`[admin] tag update failed: ${tagError}`)
 
@@ -345,7 +355,7 @@ export async function deleteContent(id: string): Promise<ActionState> {
   const supabase = await createClient()
   const { data: item, error: loadError } = await supabase
     .from('content_items')
-    .select('type, status, file_path')
+    .select('type, status, slug, file_path')
     .eq('id', id)
     .maybeSingle()
   if (loadError) return databaseError(loadError)
@@ -359,7 +369,10 @@ export async function deleteContent(id: string): Promise<ActionState> {
     if (removeError) console.error(`[admin] could not remove file: ${removeError.message}`)
   }
 
-  if (item.status === 'published') updateTag(PUBLIC_CONTENT_TAG)
   const type = CONTENT_TYPES.find((value) => value === item.type) ?? 'article'
+  if (item.status === 'published') {
+    updateTag(PUBLIC_CONTENT_TAG)
+    after(() => notifySearchEngines([contentPath(type, item.slug)]))
+  }
   redirect(`${contentTypeConfig[type].adminPath}?deleted=1`)
 }

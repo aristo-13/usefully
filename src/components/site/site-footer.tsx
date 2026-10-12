@@ -41,6 +41,11 @@ export function SiteFooter() {
                 Search
               </Link>
             </li>
+            <li>
+              <Link href="/privacy" className="text-muted-foreground hover:text-foreground hover:underline">
+                Privacy
+              </Link>
+            </li>
           </ul>
         </nav>
       </div>

@@ -73,6 +73,7 @@ export function Field({
   children,
   className,
   counter,
+  action,
 }: {
   name: string
   label: ReactNode
@@ -83,10 +84,12 @@ export function Field({
   children: ReactNode
   className?: string
   counter?: ReactNode
+  /** Shown next to the label, e.g. a Write with AI button. */
+  action?: ReactNode
 }) {
   return (
     <div className={cn('space-y-1.5', className)}>
-      <div className="flex items-baseline justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <Label htmlFor={htmlFor ?? name}>
           {label}
           {required ? (
@@ -96,7 +99,12 @@ export function Field({
             </span>
           ) : null}
         </Label>
-        {counter}
+        {action || counter ? (
+          <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1">
+            {action}
+            {counter}
+          </div>
+        ) : null}
       </div>
       {children}
       {hint ? (

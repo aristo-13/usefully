@@ -11,9 +11,11 @@ import {
   GraduationCap,
   Image as ImageIcon,
   LayoutDashboard,
+  LineChart,
   Link2,
   Settings,
   Tags,
+  TrendingUp,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
@@ -27,6 +29,13 @@ const sections = [
       { href: '/admin/tutorials', label: 'Tutorials', icon: GraduationCap },
       { href: '/admin/resources', label: 'Resources', icon: BookOpen },
       { href: '/admin/downloads', label: 'Downloads', icon: Download },
+    ],
+  },
+  {
+    label: 'Grow',
+    items: [
+      { href: '/admin/trends', label: 'Trends', icon: TrendingUp },
+      { href: '/admin/seo', label: 'SEO', icon: LineChart },
     ],
   },
   {

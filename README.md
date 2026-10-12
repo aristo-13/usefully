@@ -10,6 +10,9 @@ Built with Next.js 16 (App Router, Cache Components), TypeScript, Tailwind CSS 4
 - [Verify your setup](#verify-your-setup)
 - [Production security checklist](#production-security-checklist)
 - [Using the dashboard](#using-the-dashboard)
+- [Trends and SEO](#trends-and-seo)
+- [AI writer](#ai-writer)
+- [Ads and reader engagement](#ads-and-reader-engagement)
 - [How it works](#how-it-works)
 - [Deployment](#deployment)
 - [Troubleshooting](#troubleshooting)
@@ -23,6 +26,8 @@ Built with Next.js 16 (App Router, Cache Components), TypeScript, Tailwind CSS 4
 - Item pages with breadcrumbs, table of contents, cover image (uploaded or linked from another site), sources, tags, author box and related reading. Downloads show the app's icon next to the title. Resources can feature a video (YouTube, Vimeo or a video file); YouTube and Vimeo load only when a visitor presses play.
 - Cards show a download's icon, otherwise the cover image (or the video's still image), so lists are easy to scan.
 - Every page fades in when it opens, on a full load and after navigating (instant for visitors who prefer reduced motion).
+- **Keeps readers reading:** a reading progress bar with the minutes left, "Also read" links between sections, an "Up next" bar near the end that suggests a page the visitor has not read yet, and "Pick up where you left off" for returning visitors. Links to other sites open in a new tab. See [Ads and reader engagement](#ads-and-reader-engagement).
+- **Google AdSense** (optional): Auto ads, in-article ads between sections, `ads.txt` and the required privacy page. Off until you add your publisher ID.
 - Resource pages link out through `/go/<slug>`; download pages show file name, format, size, version and last update. Uploaded files are served through short-lived signed links.
 - Static, cached pages that update the moment an editor publishes, unpublishes or edits something.
 
@@ -31,6 +36,9 @@ Built with Next.js 16 (App Router, Cache Components), TypeScript, Tailwind CSS 4
 - Workflow: *Draft → Ready for review → Published*. Publishing records who approved the item and when.
 - Categories, tags, keywords, media library, custom `/go/` redirects with click counts, and SEO fields (SEO title, meta description, canonical URL, noindex).
 - Every post has a cover image field, downloads an app icon field and resources a video field. Each one accepts an upload, a link or a file from the media library, with a preview that appears as soon as you pick a file or paste a link.
+- **AI writer** (optional, free with Gemini or paid with Claude): every field of the post editor (title, slug, summary, body, SEO title, meta description, keywords, tags, category, difficulty, cover alt text) has a Write with AI button, and **Write the whole post** researches the topic, writes the body and fills in every other field. See [AI writer](#ai-writer).
+- **Trends:** top Google searches, news, YouTube videos, X trends and Wikipedia's most-read pages, for Ghana and worldwide. Start a post from any topic with the title, keywords and source filled in, or **Draft with AI** to have it researched and written for you to review; topics you have covered are marked.
+- **SEO:** Google Search Console performance, index status and sitemap; Bing and other IndexNow engines told about every change; content checks that point out what to fix on each post.
 
 **Content quality safeguards**
 - Source references on every item, listed at the end of the page.
@@ -98,6 +106,8 @@ The site has no public sign-up; only accounts you create can sign in.
 cp .env.local.example .env.local
 ```
 
+The example file lists every setting with a placeholder. A value that is empty or still starts with `your-` counts as **not set**: the feature behind it stays off (and says how to turn it on) instead of failing, so you can fill the values in as you get them.
+
 | Variable | Required | Description |
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Yes | Project URL (Project Settings → API Keys). |
@@ -105,8 +115,19 @@ cp .env.local.example .env.local
 | `NEXT_PUBLIC_SITE_URL` | In production | Public address, e.g. `https://www.example.com`. Used for canonical URLs, the sitemap, social previews and security headers. |
 | `NEXT_PUBLIC_SITE_NAME` | No | Defaults to `Usefully`. |
 | `NEXT_PUBLIC_SITE_DESCRIPTION` | No | Default meta description. |
+| `GEMINI_API_KEY` | No | Free Gemini API key: turns on the [AI writer](#ai-writer). Server only. |
+| `GEMINI_MODEL` | No | Another Gemini model, for when Google retires the default (`gemini-3.8-flash`). |
+| `ANTHROPIC_API_KEY` | No | Claude API key (paid): the [AI writer](#ai-writer) with web research. Used instead of Gemini when set. Server only. |
+| `NEXT_PUBLIC_ADSENSE_CLIENT_ID` | No | AdSense publisher ID, e.g. `ca-pub-1234567890123456`: turns on [ads](#ads-and-reader-engagement). |
+| `NEXT_PUBLIC_ADSENSE_SLOT_IN_ARTICLE` | No | ID of an AdSense *In-article* ad unit, e.g. `1234567890`, for ads between sections. |
+| `NEXT_PUBLIC_CONTACT_EMAIL` | No | Shown on `/privacy` as the address for privacy questions. |
+| `YOUTUBE_API_KEY` | No | Free YouTube Data API key: popular videos on the Trends page. |
+| `X_BEARER_TOKEN` | No | Bearer token of a paid X API plan that includes trends. |
+| `GOOGLE_SERVICE_ACCOUNT_KEY` | No | JSON key of a Google service account that can read your Search Console property. |
+| `SEARCH_CONSOLE_PROPERTY` | No | Your Search Console property, e.g. `sc-domain:example.com`. |
+| `INDEXNOW_KEY` | No | 8 to 128 letters, digits or dashes; served at `/indexnow.txt`. |
 
-The app never uses a service-role or secret key; everything runs as the visitor or the signed-in editor, and Row Level Security decides what each can do. `NEXT_PUBLIC_*` values are compiled into the build, so rebuild after changing them.
+The app never uses a Supabase service-role or secret key; everything runs as the visitor or the signed-in editor, and Row Level Security decides what each can do. `NEXT_PUBLIC_*` values are compiled into the build, so rebuild after changing them. The AI keys and the five keys for the [Trends and SEO](#trends-and-seo) pages are read only on the server: never give them a `NEXT_PUBLIC_` name. **Settings** in the dashboard shows whether the AI writer and AdSense are on.
 
 ### 5. Run
 
@@ -204,6 +225,8 @@ Most of this is already enforced in code; these are the settings only you can ma
 
 **Hosting**
 - [ ] `NEXT_PUBLIC_SITE_URL` set to your `https://` domain, then rebuilt.
+- [ ] `GEMINI_API_KEY` / `ANTHROPIC_API_KEY` (if used) are set only as server variables; with Claude, a monthly spend limit is set in the Claude Console.
+- [ ] With AdSense on: `/ads.txt` shows your publisher ID, the consent message for the EEA/UK is published, and `/privacy` has a contact address.
 - [ ] Node.js 22 or newer.
 - [ ] If your host has a firewall or WAF (for example Vercel Firewall), add a rate limit on `POST /auth/login`.
 - [ ] Multiple self-hosted instances share one `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY`.
@@ -235,7 +258,116 @@ Other tools:
 
 - **Media:** upload images (JPEG, PNG, WebP, GIF or AVIF, up to 5 MB) and videos (MP4 or WebM, up to 50 MB). Use them as covers, icons or videos, or copy the Markdown snippet to place an image inside an article. Deleting a file removes it from every post that uses it.
 - **Redirects:** every published resource and download is reachable at `/go/<its-slug>`. Add custom short links here (for example `/go/newsletter`); each visit is counted.
+- **Trends** and **SEO:** see [Trends and SEO](#trends-and-seo).
 - **Search engine settings** (in the editor): SEO title (replaces the whole `<title>`), meta description, keywords, canonical URL (only for content first published elsewhere) and *noindex*.
+
+## Trends and SEO
+
+### Trends (`/admin/trends`)
+
+Two tabs, **Ghana** and **Global**, list what people are searching for and talking about right now:
+
+| Source | Ghana | Global | Setup |
+| --- | --- | --- | --- |
+| Top Google searches (Google Trends) | Ghana | Combined from 8 large markets (US, UK, India, Nigeria, South Africa, Kenya, Canada, Australia); terms trending in more countries come first | None |
+| Top news (Google News) | Ghana edition | World section | None |
+| Popular videos (YouTube) | Ghana | US, UK and India | `YOUTUBE_API_KEY` (free) |
+| Trending on X | Ghana | Worldwide | `X_BEARER_TOKEN` (paid X API plan that includes trends) |
+| Most-read pages (Wikipedia) | – | English Wikipedia, yesterday | None |
+
+- **Write a post** opens a new article with the title, a keyword and the news story as a source already filled in. On a YouTube video, **Feature as a resource** opens a new resource with the video attached. With the [AI writer](#ai-writer) on, **Draft with AI** next to each opens the same post and has it researched and written for you to review.
+- Topics that an existing post's title already mentions are marked **Covered**, with a link to that post.
+- Lists are cached for 15 minutes; **Refresh** fetches them again.
+- **Instagram, Facebook and TikTok** do not offer trend data to other websites, and copying it out of their apps breaks their terms, so the page links to where you can check them by hand. X shares trends only through its paid API.
+
+To get a YouTube key: in the Google Cloud console, create a project, enable *YouTube Data API v3*, then *Credentials → Create credentials → API key*, and restrict the key to that API. The free daily quota is far more than the page uses.
+
+### SEO (`/admin/seo`)
+
+- **Google Search Console** (once connected): clicks, impressions, click rate and average position for the last 28 days; top searches and pages; *opportunities* (searches just off the first page, and searches where you appear often but few people click); the index status of the 20 most recent posts, with plain-language advice and a link to inspect each page; and the sitemap's status, with a button to submit it.
+- **Bing and others (IndexNow):** every publish, edit, unpublish or delete of a published post is announced automatically, so Bing, Yandex and other IndexNow engines recrawl it within minutes. A button sends every page at once.
+- **Content checks:** every published post is checked for what holds it back: noindex left on, duplicate titles, descriptions that are too short or too long, titles that get cut off, thin pages, missing sources, cover images or alt text, missing categories or tags, and pages not updated for a year. Each comes with an Edit link.
+
+Google offers no way to make it index ordinary pages faster (its Indexing API is limited to job postings and livestreams). Keep the sitemap submitted, link new posts from older ones, and use *Request indexing* in Search Console for important pages.
+
+**Connect Google Search Console**
+
+1. Add and verify the site in [Search Console](https://search.google.com/search-console). A *Domain* property, verified with a DNS record, covers every address of the site.
+2. In Google Cloud, create a project, enable the *Google Search Console API*, create a service account, and create a JSON key for it.
+3. In Search Console, open *Settings → Users and permissions* and add the service account's email address. *Full* permission is needed to submit the sitemap; *Restricted* is enough for the reports.
+4. Set `GOOGLE_SERVICE_ACCOUNT_KEY` to the contents of the JSON key file (or the same JSON base64-encoded) and `SEARCH_CONSOLE_PROPERTY` to `sc-domain:your-domain` (Domain property) or `https://your-domain/` (URL-prefix property). Redeploy.
+
+**Turn on IndexNow**
+
+1. Choose a key of 8 to 128 letters, digits or dashes, for example `node -e "console.log(crypto.randomUUID())"`.
+2. Set `INDEXNOW_KEY` and redeploy (the key file is generated at build time). `https://your-domain/indexnow.txt` must show the key. Announcements only run when `NEXT_PUBLIC_SITE_URL` is an `https://` address.
+3. Optionally add the site to Bing Webmaster Tools (it can import from Search Console) to see Bing's own reports.
+
+All of this runs on the server: trend sources and Google are called from the server, and keys are never sent to the browser or written to the logs.
+
+## AI writer
+
+The post editor can research and write posts with **Gemini** (Google, free tier) or **Claude** (Anthropic, paid). It is off until one of their keys is set; until then the editor says how to turn it on. With both keys set, Claude is used.
+
+| | Gemini (`gemini-3.8-flash`) | Claude (`claude-opus-5-5`) |
+| --- | --- | --- |
+| Cost | Free tier, no card needed, with daily limits | Pay per use (see Cost below) |
+| Research for the body | Reads the pages listed under **Sources** (such as the trend's news story). Cannot search Google on the free tier | Searches the web and reads pages itself; adds what it used to **Sources** |
+| Writing quality | Good | Best |
+| Your prompts | On the free tier, Google may use them to improve its products | Not used for training by default |
+
+**Turn on Gemini (free)**
+
+1. Sign in at [aistudio.google.com](https://aistudio.google.com) with a Google account and choose **Get API key → Create API key**.
+2. Set it as `GEMINI_API_KEY` (server only, never `NEXT_PUBLIC_`) and restart or redeploy. **Settings** in the dashboard shows *AI writer: On* with the model.
+3. Google retires models often. If the editor says the model is not available, set `GEMINI_MODEL` to a current Flash model from Google's [models page](https://ai.google.dev/gemini-api/docs/models).
+
+Free-tier limits are per project and shown in AI Studio. When they run out, the editor says so; they reset daily.
+
+**Turn on Claude (paid)**
+
+1. At [console.anthropic.com](https://console.anthropic.com), add credit under *Billing*, set a monthly spend limit under *Settings → Limits*, then create a key under *API Keys*. A Claude Pro or Max plan does not include API credit: the API is billed separately.
+2. Set it as `ANTHROPIC_API_KEY` and restart or redeploy.
+3. Research uses Claude's web search and web fetch tools. If an organization admin has switched web search off in the Claude Console, the writer says so and writes from the model's own knowledge instead.
+
+**In the editor**
+
+- **AI writer** panel at the top: optional instructions (angle, audience, points to cover), the research option (*Research the web* with Claude, *Read the sources* with Gemini; ticked for posts started from Trends), and **Write the whole post**. That researches the topic, streams the body into the editor, then writes the title, slug (never for a published page, whose address must not change), summary, SEO title, meta description, keywords, tags, category and, for tutorials, difficulty. With Claude, pages it relied on are added to **Sources**.
+- Every field also has its own button: **Write** / **Improve** for text, **Suggest** for keywords, tags, category and difficulty, **Write** / **Rewrite** for the body, and alt text that describes the cover image itself. **Undo** puts back what was there; **Stop** cancels.
+- Each request sees the rest of the post, your instructions and, for posts from Trends, why the topic is trending. Bodies are written to hold attention (a hook, the answer early, clear headings, lists, an FAQ where useful) and link to up to four of your recent posts.
+- Whatever the AI writes ticks *Drafted with AI assistance*, so publishing still needs the review confirmation and the page discloses AI assistance. Read it all and check the facts and sources before publishing.
+
+**From Trends:** **Draft with AI** on any topic opens a new post and starts *Write the whole post* straight away, with the trend's context (for example "Trending on Google in Ghana (2,000+ searches)" and related headlines) and research on. Most trends come with a news story as their source, which Gemini reads; for trends without one (such as X), add a source link first so the facts come from somewhere current.
+
+**Cost:** Gemini's free tier costs nothing within its limits. Claude Opus 5.5 is billed per token (US$4 per million input tokens, US$20 per million output tokens), web searches at US$10 per 1,000: short fields cost a few cents at most, and a researched body usually well under US$1. The Claude instructions are cached between requests, which makes repeated buttons on the same post cheaper. If Claude's safety filters decline a request, the API retries it on another model automatically.
+
+The keys stay on the server. The editor talks to `/admin/ai`, which accepts only same-origin requests from signed-in admins.
+
+## Ads and reader engagement
+
+### Google AdSense
+
+1. Apply at [adsense.google.com](https://adsense.google.com) with your domain once the site is live with original, reviewed posts.
+2. Copy your publisher ID (*Account → Account information*, `ca-pub-…`) into `NEXT_PUBLIC_ADSENSE_CLIENT_ID` and rebuild. This adds the AdSense code to public pages (never the dashboard or sign-in page), serves `/ads.txt`, opens the Content-Security-Policy for Google's ad hosts, and adds the advertising and cookie disclosures that AdSense requires to `/privacy` (linked in the footer).
+3. In AdSense, turn on **Auto ads** for the site (*Ads → By site*).
+4. Recommended: create an **In-article** ad unit (*Ads → By ad unit*) and put its ID in `NEXT_PUBLIC_ADSENSE_SLOT_IN_ARTICLE`. Up to two in-article ads then appear between sections of every post, including pages reached by clicking around the site (Auto ads only fill the first page of a visit, because later pages load without a full page reload). Units are labelled *Advertisement* and take no space when unfilled or blocked.
+5. *Privacy & messaging → European regulations*: publish a consent message. Google requires one for visitors from the EEA, the UK and Switzerland, and the AdSense code shows it with no change to the site.
+6. Set `NEXT_PUBLIC_CONTACT_EMAIL` so the privacy page has a contact address, and read the page through (it describes what this site does; adapt it if you add other services).
+
+### What keeps readers on the site
+
+Built into every post page, without slowing it or moving the layout:
+
+- **Reading progress bar** under the header, with the minutes left on wide screens.
+- **"Also read"** links between sections to related posts (same category first), placed where readers decide whether to go on.
+- **"Up next"** bar once a reader is three quarters through, suggesting a related post they have not opened yet.
+- **"Pick up where you left off"** for returning visitors: on the post itself, and on the home page for their latest unfinished post.
+- **Links to other websites** (in posts, sources and Visit buttons) open in a new tab, so your page stays open behind them.
+- **AI-written posts** follow a structure that holds attention and link to your related posts.
+
+Reading progress is stored only in the visitor's browser (local storage), never sent to the server; the privacy page says so.
+
+Deliberately left out: tricks that inflate time on site by misleading visitors get AdSense accounts suspended and earnings withheld, and some also hurt search rankings. The site does not hijack the back button, disguise ads as content or download buttons, put ads next to buttons to cause accidental clicks, split articles across pages for extra page views, refresh ads automatically, open pop-unders, or cover content with pop-ups.
 
 ## How it works
 
@@ -253,6 +385,11 @@ Other tools:
 | `/go/<slug>` | Outbound links, downloads and custom redirects (counted, not indexed) |
 | `/sitemap.xml`, `/robots.txt`, `/og.png` | SEO files and the default social image |
 | `/admin`, `/auth/login` | Dashboard and sign-in |
+| `/admin/trends`, `/admin/seo` | Trends and SEO tools (admins only) |
+| `/admin/ai` | AI writer endpoint used by the post editor (admins only, same-origin `POST`, streams newline-delimited JSON) |
+| `/privacy` | Privacy policy, including the AdSense cookie disclosures when ads are on |
+| `/indexnow.txt` | IndexNow key file (only when `INDEXNOW_KEY` is set) |
+| `/ads.txt` | Authorises Google to sell ads on the site (only when `NEXT_PUBLIC_ADSENSE_CLIENT_ID` is set) |
 
 Slugs are unique across all content types, which keeps `/go/<slug>` unambiguous.
 
@@ -274,7 +411,9 @@ Slugs are unique across all content types, which keeps `/go/<slug>` unambiguous.
 - **Storage:** `media` is a public bucket for images (5 MB, no SVG) and videos (MP4/WebM, 50 MB). `downloads` is private (50 MB); storage policies let visitors obtain a 60-second signed link only for files attached to published downloads. Only admins can upload or delete.
 - **Input handling:** all Server Action and API input is validated with zod. URLs must be `http(s)` (also enforced by database constraints). Markdown ignores raw HTML and strips unsafe link targets. JSON-LD output is escaped.
 - **Media from other sites:** linked images and video files must use `https://` and are shown as they are; only files from your own media library go through image optimisation, so the optimiser never fetches arbitrary URLs. The only embeddable players are YouTube (privacy-enhanced `youtube-nocookie.com`) and Vimeo, sandboxed and loaded on demand.
-- **Headers** (`next.config.ts`): Content-Security-Policy, HSTS in production, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Cross-Origin-Opener-Policy` and `Permissions-Policy`.
+- **External services:** Google Trends, Google News, Wikipedia, YouTube, X and Search Console are called from the server only. Keys live in server-only environment variables and are never logged; the Search Console service account needs access to that one property and nothing else.
+- **AI writer:** the Gemini and Claude APIs are called from the server only. `/admin/ai` rejects requests from other origins, requires a signed-in admin (the proxy sends everyone else to the sign-in page), validates every field with zod and caps sizes. Model output only ever fills editor fields for a person to review; web pages it reads are treated as reference material, never as instructions. For Gemini's alt text the server downloads the cover itself, but only from the media library or a public `https://` address, without following redirects and up to 5 MB, so it cannot be pointed at internal addresses.
+- **Headers** (`next.config.ts`): Content-Security-Policy, HSTS in production, `X-Frame-Options`, `X-Content-Type-Options`, `Referrer-Policy`, `Cross-Origin-Opener-Policy` and `Permissions-Policy`. With AdSense on, scripts, frames and connections may also come from any HTTPS host (the ad code loads from many Google hosts, including country domains such as `adservice.google.com.gh`, that an allowlist cannot cover; inline scripts are already allowed, so this adds little exposure), and `Cross-Origin-Opener-Policy` becomes `same-origin-allow-popups` so ad clicks can open the advertiser's page.
 
 ### Writing for search and AI answers
 
@@ -292,14 +431,20 @@ src/
     go/[slug]/       outbound link and download redirects
     sitemap.ts, robots.ts, og.png/, icon.svg, apple-icon.tsx
   components/
-    admin/           dashboard UI (editor, tables, forms)
+    admin/           dashboard UI (editor, AI writer controls, tables, forms)
+    ads/             AdSense script and in-article ad unit
     content/         item page, lists, Load more, share button, Markdown
+    engagement/      reading progress, Up next, Also read, Pick up where you left off
     site/            header, footer, search box, logo
     ui/              small form and layout primitives
   lib/
     admin/           Server Actions (including signed uploads), admin queries and validation
+    ai/              AI writer: provider choice (writer.ts), shared prompts (prompts.ts), Claude (claude.ts), Gemini (gemini.ts), types shared with the editor (fields.ts)
     content/         public queries (cached), feeds, types and route helpers
     supabase/        server, upload, public and proxy clients
+    ads.ts           AdSense settings and ads.txt
+    env.ts           reads optional settings (placeholders count as not set)
+    reading-history.ts  what a visitor has read, in their own browser
     auth.ts          admin checks (data access layer)
     seo.ts           metadata and structured data builders
 scripts/check-supabase.mjs   setup and security check
@@ -357,6 +502,13 @@ npx supabase migration repair --status applied 20261011120000 20261012090000 202
 | Signed in, but you're sent back to the login page on a plain `http://` production server | Production cookies are `Secure`; serve the site over HTTPS (localhost is exempt). |
 | Cover images do not load | Image optimization allows the host of `NEXT_PUBLIC_SUPABASE_URL` at build time; rebuild after changing it. |
 | Canonical URLs or the sitemap show `localhost` | Set `NEXT_PUBLIC_SITE_URL` and rebuild. |
+| The editor says "The AI writer is off" | Neither `GEMINI_API_KEY` nor `ANTHROPIC_API_KEY` is set (or they still hold the `your-…` placeholder). Set one and restart. |
+| "Gemini's free usage limit is used up for now" | The free tier's daily quota ran out. Wait for it to reset, or add a Claude key. |
+| "The Gemini model … is not available" | Google retired it. Set `GEMINI_MODEL` to a current Flash model from Google's models page and restart. |
+| "The Claude API key was not accepted" / "billing problem" | Check the key, and that the Claude Console account has credit. |
+| "Web research is not available for this API key" | Web search is switched off for the organization in the Claude Console; the body is written without research until it is allowed. |
+| "Your session has ended" when using an AI button | Sign in again in another tab, then retry (your edits stay in the editor). |
+| No ads appear | Check `/ads.txt` and **Settings** (*Google AdSense: On*), rebuild after setting the ID, and wait for AdSense to approve the site; ad blockers hide ads too. |
 
 ## Notes
 

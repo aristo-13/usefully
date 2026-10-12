@@ -11,8 +11,12 @@ import {
   listMediaOptions,
   listTagOptions,
 } from '@/lib/admin/queries'
+import type { ContentDraft } from '@/lib/admin/types'
+import { sourceSchema, splitList } from '@/lib/admin/validation'
+import { aiSetup } from '@/lib/ai/writer'
 import { requireAdmin } from '@/lib/auth'
 import { contentTypeConfig, isContentStatus, type ContentType } from '@/lib/content/types'
+import { parseVideoUrl } from '@/lib/media'
 import { siteConfig } from '@/lib/site'
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -22,6 +26,37 @@ const savedNotices = {
   in_review: 'Created and marked as ready for review.',
   published: 'Published. The page is now live.',
 } as const
+
+/**
+ * Starting values for a new post from the URL, e.g. /admin/articles/new?title=…
+ * (the Trends page links here). Each value is checked like the saved field.
+ */
+function draftFrom(query: Record<string, string | string[] | undefined>, type: ContentType): ContentDraft | undefined {
+  const text = (key: string, max: number) => (typeof query[key] === 'string' ? query[key].trim().slice(0, max) : '')
+  const title = text('title', 200)
+  const keywords = splitList(text('keywords', 500))
+    .filter((keyword) => keyword.length <= 50)
+    .slice(0, 10)
+  const source = sourceSchema.safeParse({
+    title: text('source_title', 200) || text('source_url', 200),
+    url: text('source_url', 2000),
+    publisher: text('source_publisher', 100),
+  })
+  const videoUrl = type === 'resource' && parseVideoUrl(text('video_url', 2000)) ? text('video_url', 2000) : ''
+  const context = text('context', 1000)
+  if (!title && !keywords.length && !source.success && !videoUrl && !context) return undefined
+  return {
+    title,
+    keywords,
+    source: source.success
+      ? { title: source.data.title, url: source.data.url, ...(source.data.publisher ? { publisher: source.data.publisher } : {}) }
+      : null,
+    videoUrl,
+    context,
+    region: query.region === 'ghana' || query.region === 'global' ? query.region : null,
+    autoDraft: query.ai === '1',
+  }
+}
 
 export async function ContentEditor({
   type,
@@ -72,6 +107,8 @@ export async function ContentEditor({
         defaultAuthorId={admin.id}
         siteUrl={siteConfig.url}
         notice={notice}
+        draft={item ? undefined : draftFrom(query, type)}
+        aiProvider={aiSetup().provider}
       />
 
       {item ? (

@@ -6,9 +6,12 @@
 // It never changes data (its write probes match zero rows) and never prints your
 // keys. Exit code 1 means a check failed.
 
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')
-const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL
+// Empty values and the `your-…` placeholders from .env.local.example count as not set.
+const setting = (value) => (value?.trim() && !/^your[-_]/i.test(value.trim()) ? value.trim() : undefined)
+
+const url = setting(process.env.NEXT_PUBLIC_SUPABASE_URL)?.replace(/\/+$/, '')
+const key = setting(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
+const siteUrl = setting(process.env.NEXT_PUBLIC_SITE_URL)
 
 let failures = 0
 let warnings = 0
@@ -23,7 +26,7 @@ const warn = (message, fix) => {
 }
 const skip = (message) => console.log(`  SKIP  ${message} (apply the migrations first)`)
 
-if (!url || !key || key.startsWith('your-')) {
+if (!url || !key || url.includes('your-project-ref')) {
   console.error('Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY (see .env.local.example).')
   process.exit(1)
 }

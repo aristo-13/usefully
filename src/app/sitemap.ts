@@ -45,6 +45,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (tag.count >= MIN_INDEXABLE_TAG_ITEMS) entries.push({ url: absoluteUrl(`/tags/${tag.slug}`) })
   }
 
+  entries.push({ url: absoluteUrl('/privacy') })
+
   for (const item of items) {
     if (item.noindex) continue
     const url = absoluteUrl(contentPath(item.type, item.slug))

@@ -1,3 +1,5 @@
+import { setting } from '@/lib/env'
+
 export type SupabaseConfig = { url: string; key: string }
 
 /**
@@ -7,10 +9,10 @@ export type SupabaseConfig = { url: string; key: string }
  */
 export function getSupabaseConfig(): SupabaseConfig | null {
   // Referenced literally so Next.js can inline them into client bundles.
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+  const url = setting(process.env.NEXT_PUBLIC_SUPABASE_URL)
+  const key = setting(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY)
 
-  if (!url || !key || key.startsWith('your-')) return null
+  if (!url || !key || url.includes('your-project-ref')) return null
 
   try {
     const parsed = new URL(url)

@@ -4,6 +4,7 @@ import { DETAIL_SELECT, parseSources, toDetail, type DetailRow } from '@/lib/con
 import {
   CONTENT_STATUSES,
   CONTENT_TYPES,
+  contentPath,
   isContentStatus,
   isContentType,
   type ContentDetail,
@@ -17,9 +18,11 @@ import type {
   MediaOption,
   MediaRow,
   Option,
+  PostTitle,
   TaxonomyRow,
 } from '@/lib/admin/types'
 import { isVideoType } from '@/lib/media'
+import { countWords, type AuditItem } from '@/lib/search-engines/audit'
 import { mediaPublicUrl } from '@/lib/supabase/config'
 import { createClient } from '@/lib/supabase/server'
 
@@ -256,6 +259,60 @@ export async function listMedia(page: number): Promise<{ items: MediaRow[]; tota
   }
 }
 
+/** Published posts with what the content checks need, newest first. */
+export async function listAuditItems(): Promise<AuditItem[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('content_items')
+    .select(
+      `id, type, title, slug, excerpt, body, seo_title, seo_description, noindex, cover_media_id, cover_image_url,
+       cover_alt, sources, category_id, updated_at, cover:media(alt_text), content_tags(tag_id)`,
+    )
+    .eq('status', 'published')
+    .order('published_at', { ascending: false })
+    .limit(1000)
+  if (error) fail('content checks', error)
+  return (data ?? []).flatMap((row) =>
+    isContentType(row.type)
+      ? [
+          {
+            id: row.id,
+            type: row.type,
+            title: row.title,
+            slug: row.slug,
+            excerpt: row.excerpt,
+            words: countWords(row.body),
+            seoTitle: row.seo_title,
+            seoDescription: row.seo_description,
+            noindex: row.noindex,
+            hasCover: Boolean(row.cover_media_id || row.cover_image_url),
+            coverAlt: row.cover_alt || row.cover?.alt_text || '',
+            sources: parseSources(row.sources).length,
+            hasCategory: Boolean(row.category_id),
+            tags: row.content_tags?.length ?? 0,
+            updatedAt: row.updated_at,
+          },
+        ]
+      : [],
+  )
+}
+
+/** Titles of all posts, newest edits first, for matching against trending topics. */
+export async function listPostTitles(): Promise<PostTitle[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('content_items')
+    .select('id, type, status, title')
+    .order('updated_at', { ascending: false })
+    .limit(2000)
+  if (error) fail('post titles', error)
+  return (data ?? []).flatMap((row) =>
+    isContentType(row.type) && isContentStatus(row.status)
+      ? [{ id: row.id, type: row.type, status: row.status, title: row.title }]
+      : [],
+  )
+}
+
 export async function listMediaOptions(): Promise<MediaOption[]> {
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -349,4 +406,19 @@ export async function listTagOptions(): Promise<Option[]> {
   const { data, error } = await supabase.from('tags').select('id, name').order('name')
   if (error) fail('tags', error)
   return data ?? []
+}
+
+/** Recently published pages, which the AI writer may link to from a new post. */
+export async function listPublishedLinks(limit = 60): Promise<{ id: string; title: string; path: string }[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('content_items')
+    .select('id, type, title, slug')
+    .eq('status', 'published')
+    .order('published_at', { ascending: false })
+    .limit(limit)
+  if (error) fail('published pages', error)
+  return (data ?? []).flatMap((row) =>
+    isContentType(row.type) ? [{ id: row.id, title: row.title, path: contentPath(row.type, row.slug) }] : [],
+  )
 }

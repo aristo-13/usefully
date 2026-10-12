@@ -1,6 +1,8 @@
+import { setting } from '@/lib/env'
+
 function resolveSiteUrl(): string {
   const candidates = [
-    process.env.NEXT_PUBLIC_SITE_URL,
+    setting(process.env.NEXT_PUBLIC_SITE_URL),
     process.env.VERCEL_PROJECT_PRODUCTION_URL
       ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
       : undefined,
@@ -19,14 +21,17 @@ function resolveSiteUrl(): string {
 }
 
 export const siteConfig = {
-  name: process.env.NEXT_PUBLIC_SITE_NAME?.trim() || 'Usefully',
+  name: setting(process.env.NEXT_PUBLIC_SITE_NAME) || 'Usefully',
   description:
-    process.env.NEXT_PUBLIC_SITE_DESCRIPTION?.trim() ||
+    setting(process.env.NEXT_PUBLIC_SITE_DESCRIPTION) ||
     'Practical articles, step-by-step tutorials, reviewed resources and useful downloads.',
   url: resolveSiteUrl(),
   locale: 'en_US',
   language: 'en',
 } as const
+
+/** Whether NEXT_PUBLIC_SITE_URL holds a real address (not empty or a placeholder). */
+export const siteUrlConfigured = Boolean(setting(process.env.NEXT_PUBLIC_SITE_URL))
 
 /** Builds an absolute URL on the public site from a path such as `/articles/foo`. */
 export function absoluteUrl(path = '/'): string {
