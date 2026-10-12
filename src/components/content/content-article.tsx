@@ -7,6 +7,7 @@ import { AdSlot } from '@/components/ads/ad-slot'
 import { AppIcon } from '@/components/content/app-icon'
 import { Breadcrumbs } from '@/components/content/breadcrumbs'
 import { ContentList } from '@/components/content/content-card'
+import { EditLink } from '@/components/content/edit-link'
 import { MarkdownContent } from '@/components/content/markdown-content'
 import { ShareButton } from '@/components/content/share-button'
 import { VideoPlayer } from '@/components/content/video-player'
@@ -371,7 +372,12 @@ export async function ContentArticle({ item, preview = false }: { item: ContentD
             ) : null}
             <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
               <ArticleMeta item={item} />
-              {preview ? null : <ShareButton path={path} title={item.title} withLabel />}
+              {preview ? null : (
+                <div className="flex items-center gap-2">
+                  <EditLink path={path} />
+                  <ShareButton path={path} title={item.title} withLabel />
+                </div>
+              )}
             </div>
           </header>
 

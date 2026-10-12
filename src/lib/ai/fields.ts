@@ -87,3 +87,21 @@ export const AI_ENDPOINT = '/admin/ai'
 export type AiProvider = 'claude' | 'gemini'
 
 export const AI_PROVIDER_NAMES: Record<AiProvider, string> = { claude: 'Claude', gemini: 'Gemini' }
+
+/** AI advice on an existing category (Categories page). */
+export type CategoryAdvice = {
+  id: string
+  name: string
+  slug: string
+  /** One sentence: keep, rename, merge… */
+  note: string
+  /** A better description, or empty when the current one is fine. */
+  description: string
+}
+
+/** A new category the AI suggests (Categories page). */
+export type CategorySuggestion = { name: string; slug: string; description: string; reason: string }
+
+export type CategoryAdviceResult =
+  | { status: 'ok'; existing: CategoryAdvice[]; suggestions: CategorySuggestion[] }
+  | { status: 'error'; message: string }

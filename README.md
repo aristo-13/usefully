@@ -252,7 +252,8 @@ A typical first session:
    - **Resources** need a website address, a video or a cover photo before publishing. **Downloads** need either an uploaded file (up to 50 MB) or an external link.
    - **Cover image** (every post), **App icon** (downloads) and **Video** (resources): choose *Upload*, *Link* or *Library*. The preview updates as soon as you pick a file or paste a link. Links to other sites must start with `https://`; videos can be YouTube or Vimeo links, or a direct link to an MP4 or WebM file. Give covers alt text that describes the image.
 4. Use **Save draft** or **Mark ready for review**, check **Preview saved version**, then **Publish**.
-5. To take a page offline without deleting it, use **Unpublish**.
+5. **Edit a live post** from its row in the list, or with the **Edit** button that appears next to **Share** on the post itself while you are signed in. Change anything, then press **Update live page**: the page stays online while you edit and the changes go live at once. If something needs fixing first, nothing is saved and the live page stays as it was. A post approved earlier keeps its approval for changes you make by hand; text the AI writes needs the review box ticked again.
+6. To take a page offline without deleting it, use **Unpublish**.
 
 Other tools:
 
@@ -337,6 +338,8 @@ Free-tier limits are per project and shown in AI Studio. When they run out, the 
 - Each request sees the rest of the post, your instructions and, for posts from Trends, why the topic is trending. Bodies are written to hold attention (a hook, the answer early, clear headings, lists, an FAQ where useful) and link to up to four of your recent posts.
 - Whatever the AI writes ticks *Drafted with AI assistance*, so publishing still needs the review confirmation and the page discloses AI assistance. Read it all and check the facts and sources before publishing.
 
+**Categories:** on the **Categories** page, **Suggest categories** has the AI review your categories, your posts (and which have no category) and what people are searching for in Ghana and worldwide. It comments on each existing category (keep, rename, merge) with a better description you can apply in one click, and suggests new categories you can edit and add in one click. Nothing changes until you add or apply one.
+
 **From Trends:** **Draft with AI** on any topic opens a new post and starts *Write the whole post* straight away, with the trend's context (for example "Trending on Google in Ghana (2,000+ searches)" and related headlines) and research on. Most trends come with a news story as their source, which Gemini reads; for trends without one (such as X), add a source link first so the facts come from somewhere current.
 
 **Cost:** Gemini's free tier costs nothing within its limits. Claude Opus 5.5 is billed per token (US$4 per million input tokens, US$20 per million output tokens), web searches at US$10 per 1,000: short fields cost a few cents at most, and a researched body usually well under US$1. The Claude instructions are cached between requests, which makes repeated buttons on the same post cheaper. If Claude's safety filters decline a request, the API retries it on another model automatically.
@@ -387,6 +390,7 @@ Deliberately left out: tricks that inflate time on site by misleading visitors g
 | `/admin`, `/auth/login` | Dashboard and sign-in |
 | `/admin/trends`, `/admin/seo` | Trends and SEO tools (admins only) |
 | `/admin/ai` | AI writer endpoint used by the post editor (admins only, same-origin `POST`, streams newline-delimited JSON) |
+| `/admin/edit?path=/articles/<slug>` | Opens a live post in the editor (the **Edit** button on post pages; admins only) |
 | `/privacy` | Privacy policy, including the AdSense cookie disclosures when ads are on |
 | `/indexnow.txt` | IndexNow key file (only when `INDEXNOW_KEY` is set) |
 | `/ads.txt` | Authorises Google to sell ads on the site (only when `NEXT_PUBLIC_ADSENSE_CLIENT_ID` is set) |
@@ -407,7 +411,7 @@ Slugs are unique across all content types, which keeps `/go/<slug>` unambiguous.
 - **Row Level Security** on every table. Visitors can read published content only. Drafts, items in review, redirects and unused media are visible only to admins, identified by `profiles.role = 'admin'` through a `private.is_admin()` helper that is not exposed by the API.
 - **Explicit grants:** new tables are no longer exposed to the Supabase Data API automatically (enforced from 2026-10-30), so the migrations grant each role exactly what it needs. Editors can change only their own display name and bio, never a role.
 - **Authentication:** the proxy (`src/proxy.ts`) refreshes the session and redirects signed-out visitors away from `/admin`. Every admin page and Server Action verifies the JWT (`getClaims`) and the admin role again, and RLS is the final check. Sign-in uses the same message for unknown accounts and wrong passwords.
-- **Cookies:** auth cookies are `httpOnly`. The browser never holds a Supabase session: to upload, the dashboard asks a Server Action (which checks the admin role) for a one-time signed upload URL for one generated path.
+- **Cookies:** auth cookies are `httpOnly`. The browser never holds a Supabase session: to upload, the dashboard asks a Server Action (which checks the admin role) for a one-time signed upload URL for one generated path. While someone is signed in, the proxy also sets a readable `editor-hint` cookie so static post pages can show them an **Edit** button; it grants nothing (the dashboard checks the session and role itself) and is cleared on sign-out.
 - **Storage:** `media` is a public bucket for images (5 MB, no SVG) and videos (MP4/WebM, 50 MB). `downloads` is private (50 MB); storage policies let visitors obtain a 60-second signed link only for files attached to published downloads. Only admins can upload or delete.
 - **Input handling:** all Server Action and API input is validated with zod. URLs must be `http(s)` (also enforced by database constraints). Markdown ignores raw HTML and strips unsafe link targets. JSON-LD output is escaped.
 - **Media from other sites:** linked images and video files must use `https://` and are shown as they are; only files from your own media library go through image optimisation, so the optimiser never fetches arbitrary URLs. The only embeddable players are YouTube (privacy-enhanced `youtube-nocookie.com`) and Vimeo, sandboxed and loaded on demand.

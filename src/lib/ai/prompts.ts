@@ -33,6 +33,9 @@ export type WriterContext = {
 /** How the body is researched: on the web, from the editor's sources only, or not at all. */
 export type Research = 'web' | 'sources' | 'none'
 
+/** A single structured answer that is not about one post (e.g. category suggestions). */
+export type StructuredResult = { ok: true; data: unknown } | { ok: false; message: string }
+
 // Identical for every request, so providers can cache it.
 export const SYSTEM_PROMPT = `You write and edit posts for ${siteConfig.name}, a website of practical articles, step-by-step tutorials, reviewed resources (useful tools and websites) and downloads. Readers come from Ghana and from around the world, mostly through Google search and social media, and many read on their phones. An editor checks everything you write before it is published.
 

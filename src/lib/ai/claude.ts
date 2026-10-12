@@ -2,6 +2,7 @@ import 'server-only'
 
 import Anthropic, { type APIError } from '@anthropic-ai/sdk'
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
+import type { z } from 'zod'
 
 import type { AiEvent, AiField, AiRequest } from '@/lib/ai/fields'
 import {
@@ -15,6 +16,7 @@ import {
   precheck,
   shortSpec,
   type ShortField,
+  type StructuredResult,
   type WriterContext,
 } from '@/lib/ai/prompts'
 import type { Source } from '@/lib/content/types'
@@ -297,6 +299,30 @@ function describeError(error: unknown, field: AiField): string {
       : `The AI service returned an error (${error.status ?? 'unknown'}). Try again.`
   }
   return 'Something went wrong while writing. Try again.'
+}
+
+/** One structured answer from Claude for a task that is not about a single post. Never throws. */
+export async function claudeStructured(system: string, prompt: string, schema: z.ZodType): Promise<StructuredResult> {
+  try {
+    const response = await client().beta.messages.parse(
+      {
+        model: CLAUDE_MODEL,
+        max_tokens: 16000,
+        ...FALLBACK,
+        output_config: { effort: 'medium', format: betaZodOutputFormat(schema) },
+        system,
+        messages: [{ role: 'user', content: prompt }],
+      },
+      { timeout: 120_000 },
+    )
+    if (response.stop_reason === 'refusal') return { ok: false, message: REFUSED }
+    return response.parsed_output
+      ? { ok: true, data: response.parsed_output }
+      : { ok: false, message: 'The AI returned an answer that could not be used. Try again.' }
+  } catch (error) {
+    console.error(`[ai] claude request failed: ${error instanceof Anthropic.APIError ? `${error.status} ${apiMessage(error)}` : String(error)}`)
+    return { ok: false, message: describeError(error, 'meta') }
+  }
 }
 
 /** Writes one field (or every short field, for `meta`) with Claude, as a stream of events. Never throws. */

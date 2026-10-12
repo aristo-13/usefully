@@ -422,3 +422,15 @@ export async function listPublishedLinks(limit = 60): Promise<{ id: string; titl
     isContentType(row.type) ? [{ id: row.id, title: row.title, path: contentPath(row.type, row.slug) }] : [],
   )
 }
+
+/** Recent posts (any status) with their category, for AI category suggestions. */
+export async function listPostCategories(limit = 150): Promise<{ title: string; category: string | null }[]> {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('content_items')
+    .select('title, category:categories(name)')
+    .order('updated_at', { ascending: false })
+    .limit(limit)
+  if (error) fail('posts', error)
+  return (data ?? []).map((row) => ({ title: row.title, category: row.category?.name ?? null }))
+}

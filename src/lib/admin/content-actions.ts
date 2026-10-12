@@ -272,7 +272,12 @@ export async function saveContent(_previous: ActionState, formData: FormData): P
       errors.review_confirmed = 'Confirm that a person has reviewed and fact-checked this AI-assisted content.'
     }
     if (Object.keys(errors).length) {
-      return errorState('Not ready to publish yet. The item was not saved.', errors)
+      return errorState(
+        existing?.status === 'published'
+          ? 'Your changes were not saved yet: fix the highlighted fields, then press Update live page again. The live page has not changed.'
+          : 'Not ready to publish yet. The item was not saved.',
+        errors,
+      )
     }
   }
 

@@ -1,11 +1,13 @@
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
+import { CategorySuggestions } from '@/components/admin/category-suggestions'
 import { DeleteButton } from '@/components/admin/delete-button'
 import { TaxonomyForm } from '@/components/admin/taxonomy-form'
 import { EmptyRow, Notice, PageHeader, Panel, tableClass, tdClass, thClass } from '@/components/admin/ui'
 import { getTaxonomyItem, listTaxonomy } from '@/lib/admin/queries'
 import { deleteCategory, deleteTag } from '@/lib/admin/taxonomy-actions'
+import { aiSetup } from '@/lib/ai/writer'
 import { requireAdmin } from '@/lib/auth'
 import { cn, formatShortDate } from '@/lib/utils'
 
@@ -44,6 +46,8 @@ export async function TaxonomyIndex({
   await requireAdmin()
   const text = copy[kind]
   const [rows, params] = await Promise.all([listTaxonomy(text.table), searchParams])
+  // AI suggestions are offered for categories (tags are suggested per post in the editor).
+  const ai = kind === 'category' ? aiSetup() : null
 
   return (
     <>
@@ -88,9 +92,18 @@ export async function TaxonomyIndex({
             </tbody>
           </table>
         </div>
-        <Panel title={`Add a ${text.singular}`}>
-          <TaxonomyForm kind={kind} />
-        </Panel>
+        <div className="space-y-6">
+          {ai?.provider ? <CategorySuggestions provider={ai.provider} /> : null}
+          {ai && !ai.provider ? (
+            <p className="rounded-lg border border-dashed border-border px-4 py-3 text-xs text-muted-foreground">
+              AI category suggestions appear here once an AI key is set (<code>GEMINI_API_KEY</code> or{' '}
+              <code>ANTHROPIC_API_KEY</code>).
+            </p>
+          ) : null}
+          <Panel title={`Add a ${text.singular}`}>
+            <TaxonomyForm kind={kind} />
+          </Panel>
+        </div>
       </div>
     </>
   )

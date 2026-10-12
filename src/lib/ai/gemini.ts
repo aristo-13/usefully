@@ -18,6 +18,7 @@ import {
   shortSpec,
   type Research,
   type ShortField,
+  type StructuredResult,
   type WriterContext,
 } from '@/lib/ai/prompts'
 import { setting } from '@/lib/env'
@@ -239,8 +240,8 @@ function apiMessage(error: ApiError): string {
   return error.message.slice(0, 300)
 }
 
-function describeError(error: unknown, field: AiField, signal: AbortSignal): string {
-  if (signal.aborted) return 'Stopped.'
+function describeError(error: unknown, field: AiField, stopped: boolean): string {
+  if (stopped) return 'Stopped.'
   if (!(error instanceof ApiError)) return 'Gemini could not be reached. Try again.'
   if (error.status === 429) {
     return "Gemini's free usage limit is used up for now. Try again later (free limits reset daily), or add a Claude key."
@@ -267,6 +268,41 @@ export async function* writeWithGemini(request: AiRequest, context: WriterContex
     if (!signal.aborted) {
       console.error(`[ai] gemini ${request.field} failed: ${error instanceof ApiError ? `${error.status} ${apiMessage(error)}` : String(error)}`)
     }
-    yield { type: 'error', message: describeError(error, request.field, signal) }
+    yield { type: 'error', message: describeError(error, request.field, signal.aborted) }
+  }
+}
+
+/** One structured answer from Gemini for a task that is not about a single post. Never throws. */
+export async function geminiStructured(system: string, prompt: string, schema: z.ZodType): Promise<StructuredResult> {
+  const timeout = AbortSignal.timeout(120_000)
+  try {
+    const response = await client().models.generateContent({
+      model: geminiModel(),
+      contents: [{ role: 'user', parts: [{ text: prompt }] }],
+      config: {
+        systemInstruction: system,
+        responseMimeType: 'application/json',
+        responseJsonSchema: jsonSchema(schema),
+        maxOutputTokens: 8192,
+        ...thinking(ThinkingLevel.LOW),
+        abortSignal: timeout,
+      },
+    })
+    const problem = blocked(response)
+    if (problem) return { ok: false, message: problem }
+    let output: unknown = null
+    try {
+      output = JSON.parse(response.text ?? '')
+    } catch {
+      output = null
+    }
+    const parsed = schema.safeParse(output)
+    return parsed.success
+      ? { ok: true, data: parsed.data }
+      : { ok: false, message: 'The AI returned an answer that could not be used. Try again.' }
+  } catch (error) {
+    console.error(`[ai] gemini request failed: ${error instanceof ApiError ? `${error.status} ${apiMessage(error)}` : String(error)}`)
+    if (timeout.aborted) return { ok: false, message: 'Gemini took too long to answer. Try again.' }
+    return { ok: false, message: describeError(error, 'meta', false) }
   }
 }

@@ -1,9 +1,11 @@
 import 'server-only'
 
-import { CLAUDE_MODEL, claudeKey, writeWithClaude } from '@/lib/ai/claude'
+import type { z } from 'zod'
+
+import { CLAUDE_MODEL, claudeKey, claudeStructured, writeWithClaude } from '@/lib/ai/claude'
 import type { AiEvent, AiProvider, AiRequest } from '@/lib/ai/fields'
-import { geminiKey, geminiModel, writeWithGemini } from '@/lib/ai/gemini'
-import type { WriterContext } from '@/lib/ai/prompts'
+import { geminiKey, geminiModel, geminiStructured, writeWithGemini } from '@/lib/ai/gemini'
+import type { StructuredResult, WriterContext } from '@/lib/ai/prompts'
 
 export type { WriterContext } from '@/lib/ai/prompts'
 
@@ -30,6 +32,18 @@ export function aiSetup(): { enabled: boolean; provider: AiProvider | null; mess
         provider: null,
         message: 'Add a free Gemini API key as GEMINI_API_KEY, or a Claude API key as ANTHROPIC_API_KEY, to turn on the AI writer.',
       }
+  }
+}
+
+/** One structured answer from the active provider, for tasks that are not about a single post. Never throws. */
+export async function generateStructured(system: string, prompt: string, schema: z.ZodType): Promise<StructuredResult> {
+  switch (activeProvider()) {
+    case 'claude':
+      return claudeStructured(system, prompt, schema)
+    case 'gemini':
+      return geminiStructured(system, prompt, schema)
+    default:
+      return { ok: false, message: aiSetup().message }
   }
 }
 

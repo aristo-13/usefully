@@ -276,6 +276,9 @@ export function ContentForm({
   const [difficulty, setDifficulty] = useState(item?.difficulty ?? '')
   const [sources, setSources] = useState<SourceRow[]>(() => toRows(item?.sources ?? (draft?.source ? [draft.source] : [])))
   const [aiGenerated, setAiGenerated] = useState(item?.aiGenerated ?? false)
+  // A live post was approved when it was published, and that approval carries
+  // over to edits made by hand. Anything the AI writes needs a fresh confirmation.
+  const [reviewConfirmed, setReviewConfirmed] = useState(Boolean(item?.status === 'published' && item.reviewedAt))
   const [downloadSource, setDownloadSource] = useState<'file' | 'external'>(
     item && !item.filePath && item.externalUrl ? 'external' : 'file',
   )
@@ -400,6 +403,12 @@ export function ContentForm({
     setNewTags(names.filter((name) => !byName.has(name.toLocaleLowerCase())).join(', '))
   }
 
+  /** AI-written text needs a person's confirmation before it goes live, even on an approved page. */
+  function markAiWritten() {
+    setAiGenerated(true)
+    setReviewConfirmed(false)
+  }
+
   function addSources(found: Source[]) {
     if (!found.length) return
     setSources((rows) => {
@@ -446,7 +455,7 @@ export function ContentForm({
     const written = typeof result.value === 'string' ? result.value : streamed
     setBody(written)
     addSources(result.sources)
-    setAiGenerated(true)
+    markAiWritten()
     setDirty(true)
     return { body: written, sources: result.sources, notices: result.notices }
   }
@@ -475,7 +484,7 @@ export function ContentForm({
       return
     }
     setUndo({ target: 'all', restore: () => restoreAll(saved) })
-    setAiGenerated(true)
+    markAiWritten()
     setDirty(true)
     ai.setFeedback({
       tone: notices.length ? 'notice' : 'success',
@@ -549,7 +558,7 @@ export function ContentForm({
           break
         case 'excerpt':
           setExcerpt(text)
-          setAiGenerated(true)
+          markAiWritten()
           restore = () => {
             setExcerpt(saved.excerpt)
             setAiGenerated(saved.aiGenerated)
@@ -653,6 +662,15 @@ export function ContentForm({
 
       {notice && state.status === 'idle' ? <FormMessage state={{ status: 'success', message: notice }} /> : null}
       <FormMessage state={state} />
+
+      {status === 'published' ? (
+        <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+          <strong className="font-medium text-foreground">This page is live.</strong> Change anything below, then press{' '}
+          <strong className="font-medium text-foreground">Update live page</strong> to publish your changes straight away.
+          The page stays online while you edit; <strong className="font-medium text-foreground">Unpublish</strong> takes it
+          offline.
+        </p>
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="min-w-0 space-y-6">
@@ -1034,6 +1052,8 @@ export function ContentForm({
                     <input
                       type="checkbox"
                       name="review_confirmed"
+                      checked={reviewConfirmed}
+                      onChange={(event) => setReviewConfirmed(event.target.checked)}
                       className="mt-1"
                       {...fieldAria('review_confirmed', { error: errors.review_confirmed })}
                     />
