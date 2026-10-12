@@ -35,8 +35,11 @@ export const PUBLIC_CONTENT_TAG = 'public-content'
 
 type QueryError = { message: string; code?: string }
 
+// Missing table (PGRST205, 42P01) or column (42703, PGRST204): a migration has not been applied.
+const MISSING_SCHEMA_CODES = new Set(['PGRST205', '42P01', '42703', 'PGRST204'])
+
 function logQueryError(scope: string, error: QueryError) {
-  const missingSchema = error.code === 'PGRST205' || error.code === '42P01'
+  const missingSchema = MISSING_SCHEMA_CODES.has(error.code ?? '')
   console.error(
     `[content] ${scope} failed: ${error.message}${error.code ? ` (${error.code})` : ''}` +
       (missingSchema ? ' - have the Supabase migrations been applied?' : ''),
