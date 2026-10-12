@@ -59,9 +59,10 @@ The schema (tables, Row Level Security policies, search, storage buckets and sto
 
 1. `20261011120000_initial_schema.sql`
 2. `20261012090000_search_paging.sql`
+3. `20261012120000_least_privilege_grants.sql`: removes the broad grants that older Supabase projects give every new table and function automatically. Required on those projects.
 
-- **SQL Editor:** open your project → SQL Editor, paste the first file's contents and run it, then do the same with the second.
-- **Supabase CLI** (applies both automatically):
+- **SQL Editor:** open your project → SQL Editor, paste each file's contents in order and run it.
+- **Supabase CLI** (applies them all automatically):
   ```bash
   npx supabase login
   npx supabase init            # only if supabase/config.toml does not exist yet
@@ -139,13 +140,14 @@ npm run check:supabase
 It probes your project with the same public key the website uses, so it sees exactly what any visitor (or attacker) can. It checks that:
 
 - the configured key is a public one (fails if it's a secret or service-role key)
-- both migrations are applied
+- the migrations are applied
 - drafts, the redirects table, account roles and dashboard statistics are not readable
+- visitors cannot add content, delete content or change account roles
 - files in the storage buckets cannot be listed
 - public sign-up is disabled
 - the site URL uses `https://`
 
-It only reads data and never prints your keys. Fix anything marked `FAIL`.
+It never changes your data (its write attempts match zero rows) and never prints your keys. Fix anything marked `FAIL`.
 
 ### 2. Database settings (SQL Editor)
 
@@ -156,6 +158,15 @@ where relnamespace = 'public'::regnamespace and relkind = 'r' and not relrowsecu
 
 -- Buckets (expect media: public = true, downloads: public = false)
 select id, public, file_size_limit from storage.buckets where id in ('media', 'downloads');
+
+-- Least-privilege grants (expect every value to be false)
+select
+  has_column_privilege('anon', 'public.profiles', 'role', 'SELECT') as visitors_read_roles,
+  has_column_privilege('authenticated', 'public.profiles', 'role', 'UPDATE') as accounts_change_roles,
+  has_table_privilege('anon', 'public.redirects', 'SELECT') as visitors_read_redirects,
+  has_table_privilege('anon', 'public.content_items', 'INSERT') as visitors_write_content,
+  has_table_privilege('authenticated', 'public.content_items', 'TRUNCATE') as accounts_truncate,
+  has_function_privilege('anon', 'public.content_status_counts()', 'EXECUTE') as visitors_call_stats;
 
 -- Dashboard accounts (expect one row per editor)
 select u.email, p.display_name from public.profiles p
@@ -179,7 +190,7 @@ where p.role = 'admin';
 Most of this is already enforced in code; these are the settings only you can make.
 
 **Supabase dashboard**
-- [ ] Both migrations applied, and `npm run check:supabase` passes.
+- [ ] All three migrations applied, `npm run check:supabase` passes, and the "Least-privilege grants" query above returns only `false`.
 - [ ] *Allow new users to sign up* is **off** (Authentication → Sign In / Providers).
 - [ ] Password policy: minimum length **12** or more, and *Leaked password protection* on where your plan offers it (Authentication → Providers → Email / Policies).
 - [ ] Rate limits for sign-ins and token refreshes left at their defaults or lower (Authentication → Rate Limits).
@@ -314,10 +325,16 @@ npm run start   # listens on port 3000
 
 ### Changing the schema
 
-Add a new migration under `supabase/migrations/` (for example with `npx supabase migration new <name>`), apply it, then regenerate the TypeScript types:
+Add a new migration under `supabase/migrations/` (for example with `npx supabase migration new <name>`), apply it, then regenerate the TypeScript types. In every new migration, enable RLS, `revoke all` on new tables and functions from `anon` and `authenticated`, then grant only what is needed (see `20261012120000_least_privilege_grants.sql`): older projects grant everything by default.
 
 ```bash
 npx supabase gen types typescript --project-id <your-project-ref> --schema public > src/lib/database.types.ts
+```
+
+If you applied earlier migrations in the SQL Editor and later switch to the CLI, first tell the CLI they are already applied, so `db push` does not run them again:
+
+```bash
+npx supabase migration repair --status applied 20261011120000 20261012090000 20261012120000
 ```
 
 ## Troubleshooting
@@ -326,6 +343,7 @@ npx supabase gen types typescript --project-id <your-project-ref> --schema publi
 | --- | --- |
 | Logs show `Could not find the table 'public.content_items'` (`PGRST205`) and the site is empty | The migrations have not been applied (step 2). |
 | Search shows "temporarily unavailable" and logs mention `search_content` | Apply the second migration, `20261012090000_search_paging.sql`. |
+| `check:supabase` says account roles or dashboard statistics are readable by anyone | Apply the third migration, `20261012120000_least_privilege_grants.sql`. |
 | "This account does not have access to the dashboard" | The account has no admin profile; run the SQL in step 3. |
 | "Supabase is not configured" on the sign-in page | Check `.env.local`, then restart the dev server or rebuild. |
 | Signed in, but you're sent back to the login page on a plain `http://` production server | Production cookies are `Secure`; serve the site over HTTPS (localhost is exempt). |

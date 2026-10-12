@@ -3,7 +3,8 @@
 //
 //   npm run check:supabase        (reads .env.local if present)
 //
-// It only reads data and never prints your keys. Exit code 1 means a check failed.
+// It never changes data (its write probes match zero rows) and never prints your
+// keys. Exit code 1 means a check failed.
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, '')
 const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
@@ -82,6 +83,7 @@ if (search.status === 200) pass('Search with paging works')
 else fail('search_content with paging is missing.', 'Run supabase/migrations/20261012090000_search_paging.sql.')
 
 const schemaReady = schema.status === 200
+const GRANTS_FIX = 'supabase/migrations/20261012120000_least_privilege_grants.sql'
 const messageOf = (body) => (body && typeof body === 'object' ? String(body.message ?? body.error ?? '') : String(body ?? ''))
 
 // 3. Row Level Security as seen by an anonymous visitor.
@@ -97,12 +99,14 @@ if (!schemaReady) {
   const redirects = await request('/rest/v1/redirects?select=id&limit=1')
   if (denied(redirects.status) || (redirects.status === 200 && Array.isArray(redirects.body) && redirects.body.length === 0)) {
     pass('Redirects table is private')
-  } else if (redirects.status === 200) fail('The redirects table (including private notes) is readable by anyone!')
+  } else if (redirects.status === 200) {
+    fail('The redirects table (including private notes) is readable by anyone!', `Run ${GRANTS_FIX}.`)
+  }
   else warn(`Could not verify redirects (HTTP ${redirects.status}).`)
 
   const roles = await request('/rest/v1/profiles?select=role&limit=1')
   if (denied(roles.status)) pass('Account roles are private')
-  else if (roles.status === 200) fail('Account roles are readable by anyone.', 'Re-run the grants section of the initial migration.')
+  else if (roles.status === 200) fail('Account roles are readable by anyone.', `Run ${GRANTS_FIX}.`)
   else warn(`Could not verify profile privacy (HTTP ${roles.status}).`)
 
   const counts = await request('/rest/v1/rpc/content_status_counts', {
@@ -111,11 +115,32 @@ if (!schemaReady) {
     body: '{}',
   })
   if (denied(counts.status)) pass('Dashboard statistics are private')
-  else if (counts.status === 200) fail('Dashboard statistics (including draft counts) are callable by anyone.')
+  else if (counts.status === 200) fail('Dashboard statistics are callable by anyone.', `Run ${GRANTS_FIX}.`)
   else warn(`Could not verify dashboard statistics (HTTP ${counts.status}).`)
 }
 
-// 4. Storage.
+// 4. Writes by an anonymous visitor. Every probe matches zero rows, so nothing
+// changes even if the database wrongly allowed it.
+console.log('\nWhat anonymous visitors can change')
+if (!schemaReady) {
+  skip('Inserts, updates and deletes')
+} else {
+  const nobody = '00000000-0000-0000-0000-000000000000'
+  const probes = [
+    ['Adding content', '/rest/v1/content_items?columns=title', { method: 'POST', body: '[]' }],
+    ['Changing account roles', `/rest/v1/profiles?id=eq.${nobody}`, { method: 'PATCH', body: '{"role":"admin"}' }],
+    ['Deleting content', `/rest/v1/content_items?id=eq.${nobody}`, { method: 'DELETE' }],
+  ]
+  for (const [label, path, init] of probes) {
+    const result = await request(path, { ...init, headers: { 'Content-Type': 'application/json', Prefer: 'return=minimal' } })
+    if (denied(result.status)) pass(`${label} is blocked`)
+    else if (result.status >= 200 && result.status < 300) {
+      fail(`${label} is granted to anyone; only Row Level Security stops it.`, `Run ${GRANTS_FIX}.`)
+    } else warn(`Could not verify: ${label.toLowerCase()} (HTTP ${result.status}).`)
+  }
+}
+
+// 5. Storage.
 console.log('\nStorage')
 if (!schemaReady) {
   skip('Storage buckets')
@@ -136,7 +161,7 @@ if (!schemaReady) {
   }
 }
 
-// 5. Auth.
+// 6. Auth.
 console.log('\nAuthentication')
 const settings = await request('/auth/v1/settings')
 if (settings.status === 200 && settings.body && typeof settings.body === 'object') {
@@ -147,7 +172,7 @@ if (settings.status === 200 && settings.body && typeof settings.body === 'object
   }
 } else warn(`Could not read auth settings (HTTP ${settings.status}).`)
 
-// 6. Site configuration.
+// 7. Site configuration.
 console.log('\nSite')
 if (!siteUrl) warn('NEXT_PUBLIC_SITE_URL is not set.', 'Set it to your domain (https://…) in production.')
 else if (!siteUrl.startsWith('https://')) warn(`NEXT_PUBLIC_SITE_URL is ${siteUrl}.`, 'Use your https:// domain in production.')
