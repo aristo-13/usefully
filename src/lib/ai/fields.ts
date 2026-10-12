@@ -80,6 +80,8 @@ export type AiEvent =
   | { type: 'sources'; sources: Source[] }
   | { type: 'notice'; message: string }
   | { type: 'error'; message: string }
+  /** Sent every few seconds so slow networks do not close a quiet connection. */
+  | { type: 'ping' }
 
 export const AI_ENDPOINT = '/admin/ai'
 

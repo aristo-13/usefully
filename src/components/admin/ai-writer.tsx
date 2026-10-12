@@ -70,6 +70,11 @@ export function useAiWriter(settings: () => { guidance: string; research: boolea
     const { guidance, research, trend } = settings()
     const abort = new AbortController()
     controller.current = abort
+    // Stop (an abort) is reported as such; other network failures get a plain explanation.
+    const network = (message: string) => (error: unknown): never => {
+      if (abort.signal.aborted || error instanceof AiError) throw error
+      throw new AiError(message)
+    }
     const response = await fetch(AI_ENDPOINT, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Accept: 'application/x-ndjson' },
@@ -84,7 +89,7 @@ export function useAiWriter(settings: () => { guidance: string; research: boolea
       signal: abort.signal,
       // A signed-out request is redirected to the sign-in page; report it instead of following it.
       redirect: 'manual',
-    })
+    }).catch(network('The AI writer could not be reached. Check your internet connection and try again.'))
     if (response.type === 'opaqueredirect' || response.status === 401) {
       throw new AiError('Your session has ended. Sign in again in another tab, then retry.')
     }
@@ -96,29 +101,36 @@ export function useAiWriter(settings: () => { guidance: string; research: boolea
     let value: AiResult['value'] | null = null
     let sources: Source[] = []
     const notices: string[] = []
-    for await (const event of readEvents(response.body)) {
-      switch (event.type) {
-        case 'status':
-          setStatus(event.message)
-          break
-        case 'text':
-          options.onText?.(event.text)
-          break
-        case 'reset':
-          options.onReset?.()
-          break
-        case 'result':
-          value = event.value
-          break
-        case 'sources':
-          sources = event.sources
-          break
-        case 'notice':
-          notices.push(event.message)
-          break
-        case 'error':
-          throw new AiError(event.message)
+    try {
+      for await (const event of readEvents(response.body)) {
+        switch (event.type) {
+          case 'status':
+            setStatus(event.message)
+            break
+          case 'text':
+            options.onText?.(event.text)
+            break
+          case 'reset':
+            options.onReset?.()
+            break
+          case 'result':
+            value = event.value
+            break
+          case 'sources':
+            sources = event.sources
+            break
+          case 'notice':
+            notices.push(event.message)
+            break
+          case 'error':
+            throw new AiError(event.message)
+          case 'ping':
+            // Only keeps the connection open.
+            break
+        }
       }
+    } catch (error) {
+      network('The connection to the AI writer dropped before it finished, usually because of an unstable network. Try again.')(error)
     }
     if (value === null) throw new AiError('The AI writer stopped before it finished. Try again.')
     return { value, sources, notices }

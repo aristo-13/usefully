@@ -13,6 +13,8 @@ import { CONTENT_STATUSES, CONTENT_TYPES } from '@/lib/content/types'
 // Researching and writing a long body can take a few minutes.
 export const maxDuration = 300
 
+const HEARTBEAT_MS = 8_000
+
 const text = (max: number) => z.string().max(max)
 
 const requestSchema = z.object({
@@ -99,22 +101,47 @@ export async function POST(request: NextRequest) {
   request.signal.addEventListener('abort', () => abort.abort(), { once: true })
   const events = writeWithAi(input, context, abort.signal)
   const encoder = new TextEncoder()
+  const send = (controller: ReadableStreamDefaultController<Uint8Array>, event: AiEvent) =>
+    controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`))
   let closed = false
+  let heartbeat: ReturnType<typeof setInterval> | undefined
 
   const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      // The AI can think for a minute before writing; a ping every few seconds
+      // stops mobile networks and proxies from closing the quiet connection.
+      heartbeat = setInterval(() => {
+        if (closed) return
+        try {
+          send(controller, { type: 'ping' })
+        } catch {
+          // The stream has already ended.
+          closed = true
+          clearInterval(heartbeat)
+        }
+      }, HEARTBEAT_MS)
+    },
     async pull(controller) {
-      const next = await events.next()
+      let next: IteratorResult<AiEvent>
+      try {
+        next = await events.next()
+      } catch (error) {
+        closed = true
+        clearInterval(heartbeat)
+        throw error
+      }
       if (closed) return
       if (next.done) {
         closed = true
+        clearInterval(heartbeat)
         controller.close()
         return
       }
-      const event: AiEvent = next.value
-      controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`))
+      send(controller, next.value)
     },
     async cancel() {
       closed = true
+      clearInterval(heartbeat)
       abort.abort()
       await events.return(undefined)
     },

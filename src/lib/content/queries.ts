@@ -24,9 +24,17 @@ import { getPublicClient } from '@/lib/supabase/public'
 /** Every public read is tagged with this; admin mutations call updateTag() on it. */
 export const PUBLIC_CONTENT_TAG = 'public-content'
 
+/**
+ * How long a successful public read is reused. Publishing from this site's
+ * dashboard refreshes everything at once (updateTag); changes made elsewhere
+ * (another copy of the site, such as one running on your computer, or the
+ * database directly) appear within 15 minutes.
+ */
+const CONTENT_CACHE = { stale: 300, revalidate: 900, expire: 86_400 }
+
 /*
  * Caching rules for this file:
- * - Successful reads are cached for hours and refreshed on demand by tag.
+ * - Successful reads are cached for 15 minutes and refreshed on demand by tag.
  * - Failed reads are logged and cached for minutes only, so a database hiccup
  *   (or a build before the migrations have run) never sticks for long.
  * - A failed single-item read throws instead, so a real page is never cached
@@ -103,7 +111,7 @@ export async function getContentPage(
     .range(from, to)
 
   const { ok, result } = toPageResult(page, response, 'getContentPage')
-  if (ok) cacheLife('hours')
+  if (ok) cacheLife(CONTENT_CACHE)
   else cacheLife('minutes')
   return result
 }
@@ -135,7 +143,7 @@ export async function getTagContentPage(
     .range(from, to)
 
   const { ok, result } = toPageResult(page, response, 'getTagContentPage')
-  if (ok) cacheLife('hours')
+  if (ok) cacheLife(CONTENT_CACHE)
   else cacheLife('minutes')
   return result
 }
@@ -167,7 +175,7 @@ export async function getPageCount(filter: {
     cacheLife('minutes')
     return 0
   }
-  cacheLife('hours')
+  cacheLife(CONTENT_CACHE)
   return Math.ceil((count ?? 0) / PAGE_SIZE)
 }
 
@@ -195,7 +203,7 @@ export async function getPublishedSlugs(type: ContentType, limit = 1000): Promis
     cacheLife('minutes')
     return []
   }
-  cacheLife('hours')
+  cacheLife(CONTENT_CACHE)
   return (data ?? []).map((row) => row.slug)
 }
 
@@ -228,7 +236,7 @@ export async function getPublishedContent(
     cacheLife('minutes')
     return null
   }
-  cacheLife('hours')
+  cacheLife(CONTENT_CACHE)
   return toDetail(data)
 }
 
@@ -283,7 +291,7 @@ export async function getRelatedContent(
     related.push(...toSummaries(data))
   }
 
-  cacheLife('hours')
+  cacheLife(CONTENT_CACHE)
   return related
 }
 
@@ -319,7 +327,7 @@ export async function getCategories(): Promise<TaxonomyEntry[]> {
   }
 
   const countById = new Map((counts.data ?? []).map((row) => [row.category_id, Number(row.item_count)]))
-  cacheLife('hours')
+  cacheLife(CONTENT_CACHE)
   return (categories.data ?? []).map((row) => ({
     id: row.id,
     name: row.name,
@@ -353,7 +361,7 @@ export async function getTags(): Promise<TaxonomyEntry[]> {
   }
 
   const countById = new Map((counts.data ?? []).map((row) => [row.tag_id, Number(row.item_count)]))
-  cacheLife('hours')
+  cacheLife(CONTENT_CACHE)
   return (tags.data ?? []).map((row) => ({
     id: row.id,
     name: row.name,
@@ -428,7 +436,7 @@ export async function getSitemapContent(): Promise<SitemapContent[]> {
     if (!data || data.length < batchSize) break
   }
 
-  cacheLife('hours')
+  cacheLife(CONTENT_CACHE)
   return entries
 }
 
@@ -463,7 +471,7 @@ export async function searchContent(
     return { ok: false, results: [], hasMore: false }
   }
 
-  cacheLife('hours')
+  cacheLife(CONTENT_CACHE)
   const rows = data ?? []
   const results: SearchResult[] = []
   for (const row of rows.slice(0, PAGE_SIZE)) {

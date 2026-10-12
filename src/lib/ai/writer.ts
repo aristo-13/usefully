@@ -4,7 +4,7 @@ import type { z } from 'zod'
 
 import { CLAUDE_MODEL, claudeKey, claudeStructured, writeWithClaude } from '@/lib/ai/claude'
 import type { AiEvent, AiProvider, AiRequest } from '@/lib/ai/fields'
-import { geminiKey, geminiModel, geminiStructured, writeWithGemini } from '@/lib/ai/gemini'
+import { geminiKey, geminiLightModel, geminiModel, geminiStructured, writeWithGemini } from '@/lib/ai/gemini'
 import type { StructuredResult, WriterContext } from '@/lib/ai/prompts'
 
 export type { WriterContext } from '@/lib/ai/prompts'
@@ -24,7 +24,7 @@ export function aiSetup(): { enabled: boolean; provider: AiProvider | null; mess
       return {
         enabled: true,
         provider: 'gemini',
-        message: `Gemini (${geminiModel()}). It reads the sources you add; on the free tier it cannot search the web.`,
+        message: `Gemini: ${geminiModel()} writes bodies, ${geminiLightModel()} the short fields. It reads the sources you add; on the free tier it cannot search the web, and each model has its own daily limit.`,
       }
     default:
       return {

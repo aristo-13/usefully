@@ -116,7 +116,8 @@ The example file lists every setting with a placeholder. A value that is empty o
 | `NEXT_PUBLIC_SITE_NAME` | No | Defaults to `Usefully`. |
 | `NEXT_PUBLIC_SITE_DESCRIPTION` | No | Default meta description. |
 | `GEMINI_API_KEY` | No | Free Gemini API key: turns on the [AI writer](#ai-writer). Server only. |
-| `GEMINI_MODEL` | No | Another Gemini model, for when Google retires the default (`gemini-3.8-flash`). |
+| `GEMINI_MODEL` | No | Gemini model that writes bodies, for when Google retires the default (`gemini-3.8-flash`). |
+| `GEMINI_LIGHT_MODEL` | No | Gemini model for titles, summaries, SEO fields, tags, categories and alt text (default `gemini-3.5-flash-lite`). |
 | `ANTHROPIC_API_KEY` | No | Claude API key (paid): the [AI writer](#ai-writer) with web research. Used instead of Gemini when set. Server only. |
 | `NEXT_PUBLIC_ADSENSE_CLIENT_ID` | No | AdSense publisher ID, e.g. `ca-pub-1234567890123456`: turns on [ads](#ads-and-reader-engagement). |
 | `NEXT_PUBLIC_ADSENSE_SLOT_IN_ARTICLE` | No | ID of an AdSense *In-article* ad unit, e.g. `1234567890`, for ads between sections. |
@@ -321,9 +322,9 @@ The post editor can research and write posts with **Gemini** (Google, free tier)
 
 1. Sign in at [aistudio.google.com](https://aistudio.google.com) with a Google account and choose **Get API key → Create API key**.
 2. Set it as `GEMINI_API_KEY` (server only, never `NEXT_PUBLIC_`) and restart or redeploy. **Settings** in the dashboard shows *AI writer: On* with the model.
-3. Google retires models often. If the editor says the model is not available, set `GEMINI_MODEL` to a current Flash model from Google's [models page](https://ai.google.dev/gemini-api/docs/models).
+3. Google retires models often. If the editor says a model is not available, set `GEMINI_MODEL` / `GEMINI_LIGHT_MODEL` to current models from Google's [models page](https://ai.google.dev/gemini-api/docs/models).
 
-Free-tier limits are per project and shown in AI Studio. When they run out, the editor says so; they reset daily.
+**Free-tier limits.** Google limits free use per model and per day, for every site that uses the same key, so writing on your computer uses up the live site's allowance too. On 12 October 2026, `gemini-3.8-flash` allowed **20 requests a day**; see your own numbers at [ai.dev/rate-limit](https://ai.dev/rate-limit). To make that go further, `gemini-3.8-flash` writes only bodies, `gemini-3.5-flash-lite` (a separate allowance) writes everything short, and each takes over when the other's daily limit is used up. *Write the whole post* uses one request of each. When both are used up, the editor says which limit and when it resets. For more, turn on billing for the key in Google AI Studio: `gemini-3.8-flash` then costs a few cents per post.
 
 **Turn on Claude (paid)**
 
@@ -401,7 +402,7 @@ Slugs are unique across all content types, which keeps `/go/<slug>` unambiguous.
 
 - Public pages are prerendered and served as static HTML containing the first 3 items. Every public data read uses `'use cache'` and the `public-content` tag.
 - **Load more** requests `/api/content`. It validates its parameters, reuses the same cached, RLS-restricted queries, returns only published items and skips any it has already shown.
-- Dashboard actions that touch published content call `updateTag('public-content')`, so listings, item pages, the sitemap and search reflect the change on the next request. Content also revalidates hourly as a safety net.
+- Dashboard actions that touch published content call `updateTag('public-content')`, so listings, item pages, the sitemap and search reflect the change on the next request. That refresh only reaches the copy of the site whose dashboard you used: publish on the live site's dashboard, not on a copy running on your computer (both use the same database, but each keeps its own saved pages). Changes made elsewhere still appear on the live site within 15 minutes.
 - Item pages use `ensureStatic = 'navigation'`: an item published after the build is generated on its first visit, and unknown or unpublished slugs return a real `404`.
 - If the database cannot be reached, list pages show an empty state that is cached for minutes only, while an item page returns an error instead of caching a false "not found".
 - Dashboard pages are rendered per request.
@@ -507,7 +508,10 @@ npx supabase migration repair --status applied 20261011120000 20261012090000 202
 | Cover images do not load | Image optimization allows the host of `NEXT_PUBLIC_SUPABASE_URL` at build time; rebuild after changing it. |
 | Canonical URLs or the sitemap show `localhost` | Set `NEXT_PUBLIC_SITE_URL` and rebuild. |
 | The editor says "The AI writer is off" | Neither `GEMINI_API_KEY` nor `ANTHROPIC_API_KEY` is set (or they still hold the `your-…` placeholder). Set one and restart. |
-| "Gemini's free usage limit is used up for now" | The free tier's daily quota ran out. Wait for it to reset, or add a Claude key. |
+| "The free daily limit for gemini-… is used up" | Both Gemini models used their free daily allowance (shared by every site using the key). Wait for the reset time shown, turn on billing for the key in Google AI Studio, or add a Claude key. |
+| "The connection to the AI writer dropped" | The network closed the connection mid-way (common on mobile data). Try again; the editor keeps what you had. |
+| A post published on your computer (`localhost`) is missing from the live lists | Each copy of the site keeps its own saved pages. Publish on the live site's dashboard; changes made elsewhere appear within 15 minutes. |
+| `usefully.live` redirects to `www.usefully.live` (or the reverse) | Make the domain in `NEXT_PUBLIC_SITE_URL` the primary one in your host's domain settings (on Vercel: Settings → Domains, redirect the other one to it), so canonical URLs, the sitemap and IndexNow match the address that serves the site. |
 | "The Gemini model … is not available" | Google retired it. Set `GEMINI_MODEL` to a current Flash model from Google's models page and restart. |
 | "The Claude API key was not accepted" / "billing problem" | Check the key, and that the Claude Console account has credit. |
 | "Web research is not available for this API key" | Web search is switched off for the organization in the Claude Console; the body is written without research until it is allowed. |
