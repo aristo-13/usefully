@@ -22,7 +22,7 @@ import { Input, Select, Textarea } from '@/components/ui/input'
 import { saveContent } from '@/lib/admin/content-actions'
 import { prepareDownloadUpload } from '@/lib/admin/upload-actions'
 import type { ContentDraft, EditableContent, MediaOption, Option } from '@/lib/admin/types'
-import type { AiField, AiMeta, AiPost, AiProvider } from '@/lib/ai/fields'
+import type { AiField, AiMeta, AiPost, AiProvider, AiReference } from '@/lib/ai/fields'
 import {
   DIFFICULTIES,
   contentPath,
@@ -300,8 +300,9 @@ export function ContentForm({
   const trend = draft?.context ? { context: draft.context, region: draft.region } : null
   const [guidance, setGuidance] = useState('')
   const [research, setResearch] = useState(Boolean(trend))
+  const [reference, setReference] = useState<AiReference | null>(null)
   const [undo, setUndo] = useState<{ target: AiTarget; restore: () => void } | null>(null)
-  const ai = useAiWriter(() => ({ guidance, research, trend }))
+  const ai = useAiWriter(() => ({ guidance, research, trend, reference }))
   const busy = ai.active !== null
   const bodyStreaming = ai.active === 'body' || ai.active === 'all'
 
@@ -677,6 +678,14 @@ export function ContentForm({
           <AiPanel
             provider={aiProvider}
             trend={trend}
+            reference={reference}
+            onReference={setReference}
+            onLinked={(linked) => {
+              // Cite the post, and let the AI read it before writing.
+              const title = linked.title || (linked.author ? `${linked.author} on ${linked.source}` : `${linked.source} post`)
+              addSources([{ title: title.slice(0, 200), url: linked.url, publisher: linked.source.slice(0, 100) }])
+              setResearch(true)
+            }}
             guidance={guidance}
             onGuidance={setGuidance}
             research={research}

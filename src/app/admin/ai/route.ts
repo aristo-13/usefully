@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { z } from 'zod'
 
 import { listCategoryOptions, listPublishedLinks, listTagOptions } from '@/lib/admin/queries'
-import { AI_FIELDS, type AiEvent } from '@/lib/ai/fields'
+import { AI_FIELDS, LINK_PLATFORMS, type AiEvent } from '@/lib/ai/fields'
 import { aiSetup, writeWithAi, type WriterContext } from '@/lib/ai/writer'
 import { getAuthState } from '@/lib/auth'
 import { CONTENT_STATUSES, CONTENT_TYPES } from '@/lib/content/types'
@@ -42,6 +42,17 @@ const requestSchema = z.object({
   guidance: text(2000),
   research: z.boolean(),
   trend: z.object({ context: text(1500), region: z.enum(['ghana', 'global']).nullable() }).nullable(),
+  reference: z
+    .object({
+      url: z.url({ protocol: /^https?$/ }).max(2000),
+      platform: z.enum(LINK_PLATFORMS),
+      source: text(100),
+      author: text(200),
+      title: text(300),
+      text: text(5000),
+      publishedAt: text(60).nullable(),
+    })
+    .nullable(),
   imageUrl: z.url({ protocol: /^https?$/ }).max(2000).nullable(),
 })
 

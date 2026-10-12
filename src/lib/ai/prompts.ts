@@ -155,6 +155,21 @@ export function postContext(request: AiRequest, context: WriterContext): string 
   if (trend?.context) {
     lines.push('', '<trend>', `The editor started this post from the Trends page because the topic is popular right now. ${trend.context}`, '</trend>')
   }
+  if (request.reference) {
+    const linked = request.reference
+    lines.push(
+      '',
+      '<linked_post>',
+      `The editor wants this post written from the ${linked.source} post below. Use it as the starting point: report what it says, add the background and practical details readers need, and credit it with a link. Do not copy it word for word, and do not claim more than it supports.`,
+      `Link: ${linked.url}`,
+      `Author: ${linked.author || '(unknown)'}`,
+      ...(linked.publishedAt ? [`Posted: ${linked.publishedAt}`] : []),
+      ...(linked.title ? [`Title: ${linked.title}`] : []),
+      'Text:',
+      linked.text.trim() || '(not available: rely on the link, the title and the editor’s instructions)',
+      '</linked_post>',
+    )
+  }
   if (guidance.trim()) lines.push('', '<editor_instructions>', guidance.trim(), '</editor_instructions>')
   return lines.join('\n')
 }

@@ -1,10 +1,11 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { CircleAlert, CircleCheck, Info, LoaderCircle, Sparkles, Square, Undo2, X } from 'lucide-react'
+import { useEffect, useRef, useState, useTransition } from 'react'
+import { CircleAlert, CircleCheck, Info, Link2, LoaderCircle, Sparkles, Square, Undo2, X } from 'lucide-react'
 
 import { buttonVariants } from '@/components/ui/button'
-import { Textarea } from '@/components/ui/input'
+import { Input, Textarea } from '@/components/ui/input'
+import { readPostLink } from '@/lib/admin/ai-actions'
 import {
   AI_ENDPOINT,
   AI_PROVIDER_NAMES,
@@ -13,6 +14,7 @@ import {
   type AiMeta,
   type AiPost,
   type AiProvider,
+  type AiReference,
   type AiTrend,
 } from '@/lib/ai/fields'
 import type { Source } from '@/lib/content/types'
@@ -60,14 +62,16 @@ async function* readEvents(body: ReadableStream<Uint8Array>): AsyncGenerator<AiE
  * Runs AI writer requests one at a time and tracks their progress. `settings`
  * is read when a request starts, so it always sends the latest instructions.
  */
-export function useAiWriter(settings: () => { guidance: string; research: boolean; trend: AiTrend | null }) {
+export function useAiWriter(
+  settings: () => { guidance: string; research: boolean; trend: AiTrend | null; reference: AiReference | null },
+) {
   const [active, setActive] = useState<AiTarget | null>(null)
   const [status, setStatus] = useState('')
   const [feedback, setFeedback] = useState<AiFeedback | null>(null)
   const controller = useRef<AbortController | null>(null)
 
   const call: AiCall = async (field, post, options = {}) => {
-    const { guidance, research, trend } = settings()
+    const { guidance, research, trend, reference } = settings()
     const abort = new AbortController()
     controller.current = abort
     // Stop (an abort) is reported as such; other network failures get a plain explanation.
@@ -84,6 +88,7 @@ export function useAiWriter(settings: () => { guidance: string; research: boolea
         guidance,
         research: field === 'body' && research,
         trend,
+        reference,
         imageUrl: options.imageUrl ?? null,
       }),
       signal: abort.signal,
@@ -229,10 +234,147 @@ export function AiButton({
   )
 }
 
+/** "26 Oct 2026" for ISO dates; other date text (as X writes it) is shown as it is. */
+function postedOn(value: string): string {
+  const date = new Date(value)
+  return Number.isNaN(date.getTime()) || !/^\d{4}-\d{2}-\d{2}/.test(value)
+    ? value
+    : date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' })
+}
+
+/** A post on X, TikTok, YouTube… or any page for the AI to write from: read from its link, text editable. */
+function LinkReference({
+  reference,
+  onReference,
+  onLinked,
+  disabled,
+}: {
+  reference: AiReference | null
+  onReference: (reference: AiReference | null) => void
+  onLinked: (reference: AiReference) => void
+  disabled: boolean
+}) {
+  const [link, setLink] = useState('')
+  const [note, setNote] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [reading, startReading] = useTransition()
+
+  function read() {
+    const url = link.trim()
+    if (!url || reading) return
+    setError(null)
+    startReading(async () => {
+      const result = await readPostLink(url).catch(() => null)
+      if (!result) {
+        setError('The link could not be read. Check your connection and try again.')
+      } else if (!result.ok) {
+        setError(result.message)
+      } else {
+        onReference(result.reference)
+        onLinked(result.reference)
+        setNote(result.note)
+        setLink('')
+      }
+    })
+  }
+
+  if (reference) {
+    return (
+      <div className="space-y-2 rounded-md border border-border bg-background p-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 text-sm">
+            <p>
+              <span className="font-medium text-foreground">Writing from {reference.source}</span>
+              {reference.author ? <span className="text-muted-foreground"> · {reference.author}</span> : null}
+              {reference.publishedAt ? <span className="text-muted-foreground"> · {postedOn(reference.publishedAt)}</span> : null}
+            </p>
+            <a href={reference.url} target="_blank" rel="noopener noreferrer" className="block truncate text-xs text-link hover:underline">
+              {reference.url}
+              <span className="sr-only"> (opens in a new tab)</span>
+            </a>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              onReference(null)
+              setNote(null)
+            }}
+            disabled={disabled}
+            className={buttonVariants({ variant: 'ghost', size: 'xs' })}
+          >
+            Remove
+          </button>
+        </div>
+        {reference.title ? <p className="text-sm font-medium text-foreground">{reference.title}</p> : null}
+        <Textarea
+          aria-label="Text of the post"
+          rows={4}
+          maxLength={5000}
+          value={reference.text}
+          disabled={disabled}
+          onChange={(event) => onReference({ ...reference, text: event.target.value })}
+          placeholder="Paste the post's text here."
+          className="min-h-20 text-sm"
+        />
+        {note && !reference.text.trim() ? (
+          <p className="text-xs font-medium text-warning">{note}</p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Check or edit the text: the AI writes from it. The link has been added to Sources.
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <label htmlFor="ai-link" className="text-xs font-medium text-foreground">
+        Write from a post or page (optional)
+      </label>
+      <div className="flex gap-2">
+        <Input
+          id="ai-link"
+          type="url"
+          inputMode="url"
+          value={link}
+          disabled={disabled || reading}
+          onChange={(event) => setLink(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              read()
+            }
+          }}
+          placeholder="Paste a link to a post on X, TikTok, YouTube, Facebook, Instagram, or any article"
+          className="bg-background"
+        />
+        <button
+          type="button"
+          onClick={read}
+          disabled={disabled || reading || !link.trim()}
+          className={buttonVariants({ variant: 'outline', className: 'h-9 shrink-0' })}
+        >
+          {reading ? <LoaderCircle aria-hidden className="animate-spin" /> : <Link2 aria-hidden />}
+          {reading ? 'Reading…' : 'Use link'}
+        </button>
+      </div>
+      {error ? (
+        <p role="alert" className="text-xs font-medium text-destructive">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 /** Instructions for the AI and "Write the whole post", at the top of the editor. */
 export function AiPanel({
   provider,
   trend,
+  reference,
+  onReference,
+  onLinked,
   guidance,
   onGuidance,
   research,
@@ -246,6 +388,10 @@ export function AiPanel({
   /** Who writes; null when no AI key is set. */
   provider: AiProvider | null
   trend: AiTrend | null
+  reference: AiReference | null
+  onReference: (reference: AiReference | null) => void
+  /** A link was read: add it to the sources. */
+  onLinked: (reference: AiReference) => void
   guidance: string
   onGuidance: (value: string) => void
   research: boolean
@@ -290,6 +436,8 @@ export function AiPanel({
           <span className="font-medium">From Trends:</span> {trend.context}
         </p>
       ) : null}
+
+      <LinkReference reference={reference} onReference={onReference} onLinked={onLinked} disabled={active !== null} />
 
       <div className="space-y-1.5">
         <label htmlFor="ai-guidance" className="text-xs font-medium text-foreground">

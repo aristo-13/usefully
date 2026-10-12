@@ -44,6 +44,25 @@ export type AiPost = {
 /** Why a post started on the Trends page is topical, e.g. "Trending on Google in Ghana (2,000+ searches)". */
 export type AiTrend = { context: string; region: 'ghana' | 'global' | null }
 
+export const LINK_PLATFORMS = ['x', 'tiktok', 'youtube', 'instagram', 'facebook', 'threads', 'linkedin', 'web'] as const
+
+/** A post on X, TikTok, YouTube… or any web page that the editor wants a post written from. */
+export type AiReference = {
+  url: string
+  platform: (typeof LINK_PLATFORMS)[number]
+  /** e.g. "X", or the site's name for a web page. */
+  source: string
+  author: string
+  title: string
+  /** The post's text or the page's description, as read or as pasted by the editor. */
+  text: string
+  publishedAt: string | null
+}
+
+export type LinkReadResult =
+  | { ok: true; reference: AiReference; /** Shown when the text could not be read. */ note: string | null }
+  | { ok: false; message: string }
+
 export type AiRequest = {
   field: AiField
   post: AiPost
@@ -52,6 +71,8 @@ export type AiRequest = {
   /** Body only: search the web and read the sources before writing. */
   research: boolean
   trend: AiTrend | null
+  /** A social post or page to write from (pasted link). */
+  reference: AiReference | null
   /** Cover alt text only: the image to describe. */
   imageUrl: string | null
 }

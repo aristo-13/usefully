@@ -339,6 +339,18 @@ The post editor can research and write posts with **Gemini** (Google, free tier)
 - Each request sees the rest of the post, your instructions and, for posts from Trends, why the topic is trending. Bodies are written to hold attention (a hook, the answer early, clear headings, lists, an FAQ where useful) and link to up to four of your recent posts.
 - Whatever the AI writes ticks *Drafted with AI assistance*, so publishing still needs the review confirmation and the page discloses AI assistance. Read it all and check the facts and sources before publishing.
 
+**Write from a link:** in the AI writer panel, paste a link to a post on X, TikTok, YouTube, Facebook, Instagram, Threads or LinkedIn, or to any article, and press **Use link**. The post is read (author, date and text), shown for you to check, and its link is added to **Sources**; then *Write the whole post* or any field's button writes from it, crediting and linking the post. What each site shares:
+
+| Link | What is read |
+| --- | --- |
+| X | The post's text, author and date (from X's public embed data) |
+| YouTube | Title and channel; the description too when `YOUTUBE_API_KEY` is set |
+| TikTok | The caption and author, when TikTok's embed service answers |
+| Any article or web page | Its title and summary; Claude and Gemini can also open the page while writing |
+| Facebook, Instagram, Threads, LinkedIn | Usually nothing without a login: paste the post's text into the box shown |
+
+The server only opens public `https://` addresses (never local or internal ones) and reads at most 1.5 MB.
+
 **Categories:** on the **Categories** page, **Suggest categories** has the AI review your categories, your posts (and which have no category) and what people are searching for in Ghana and worldwide. It comments on each existing category (keep, rename, merge) with a better description you can apply in one click, and suggests new categories you can edit and add in one click. Nothing changes until you add or apply one.
 
 **From Trends:** **Draft with AI** on any topic opens a new post and starts *Write the whole post* straight away, with the trend's context (for example "Trending on Google in Ghana (2,000+ searches)" and related headlines) and research on. Most trends come with a news story as their source, which Gemini reads; for trends without one (such as X), add a source link first so the facts come from somewhere current.

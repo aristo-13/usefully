@@ -2,10 +2,20 @@
 
 import { listPostCategories, listTaxonomy } from '@/lib/admin/queries'
 import { CATEGORY_SYSTEM, categoryAdviceSchema, categoryPrompt, cleanCategoryAdvice, type CategoryInput } from '@/lib/ai/categories'
-import type { CategoryAdviceResult } from '@/lib/ai/fields'
+import type { CategoryAdviceResult, LinkReadResult } from '@/lib/ai/fields'
 import { aiSetup, generateStructured } from '@/lib/ai/writer'
 import { requireAdmin } from '@/lib/auth'
+import { readLink } from '@/lib/social-link'
 import { getSearchTrends } from '@/lib/trends'
+
+/** Reads a link to a post on X, TikTok, YouTube… or any page, for the AI writer to write from. */
+export async function readPostLink(url: unknown): Promise<LinkReadResult> {
+  await requireAdmin()
+  if (typeof url !== 'string' || !url.trim() || url.length > 2000) {
+    return { ok: false, message: 'Paste the full link, starting with https://' }
+  }
+  return readLink(url)
+}
 
 /** What people search for now in Ghana and worldwide (cached by the Trends page); empty if unavailable. */
 async function trendingSearches(): Promise<string[]> {
