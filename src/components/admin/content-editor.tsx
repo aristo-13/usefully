@@ -25,17 +25,18 @@ const savedNotices = {
 
 export async function ContentEditor({
   type,
-  id,
+  params,
   searchParams,
 }: {
   type: ContentType
-  id?: string
+  params?: Promise<{ id: string }>
   searchParams?: Promise<Record<string, string | string[] | undefined>>
 }) {
   const admin = await requireAdmin()
+  const id = params ? (await params).id : undefined
   if (id !== undefined && !GUID.test(id)) notFound()
 
-  const [item, categories, tags, authors, media, params] = await Promise.all([
+  const [item, categories, tags, authors, media, query] = await Promise.all([
     id ? getEditableContent(id) : Promise.resolve(null),
     listCategoryOptions(),
     listTagOptions(),
@@ -46,9 +47,9 @@ export async function ContentEditor({
   if (id && (!item || item.type !== type)) notFound()
 
   const config = contentTypeConfig[type]
-  const saved = typeof params.saved === 'string' ? params.saved : ''
+  const saved = typeof query.saved === 'string' ? query.saved : ''
   const notice = isContentStatus(saved)
-    ? `${savedNotices[saved]}${params.tags === 'failed' ? ' The tags could not be saved; please try again.' : ''}`
+    ? `${savedNotices[saved]}${query.tags === 'failed' ? ' The tags could not be saved; please try again.' : ''}`
     : undefined
 
   return (

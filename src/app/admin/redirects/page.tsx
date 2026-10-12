@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Suspense } from 'react'
 
 import { RedirectForm } from '@/components/admin/redirect-form'
-import { EmptyRow, Notice, PageHeader, Panel, tableClass, tdClass, thClass } from '@/components/admin/ui'
+import { AdminPageSkeleton, EmptyRow, Notice, PageHeader, Panel, tableClass, tdClass, thClass } from '@/components/admin/ui'
 import { Badge } from '@/components/ui/badge'
 import { listRedirects } from '@/lib/admin/queries'
 import { requireAdmin } from '@/lib/auth'
@@ -11,7 +12,15 @@ import { cn, hostnameOf } from '@/lib/utils'
 
 export const metadata: Metadata = { title: 'Redirects' }
 
-export default async function AdminRedirectsPage({ searchParams }: PageProps<'/admin/redirects'>) {
+export default function AdminRedirectsPage(props: PageProps<'/admin/redirects'>) {
+  return (
+    <Suspense fallback={<AdminPageSkeleton title="Redirects" />}>
+      <RedirectList {...props} />
+    </Suspense>
+  )
+}
+
+async function RedirectList({ searchParams }: PageProps<'/admin/redirects'>) {
   await requireAdmin()
   const [redirects, params] = await Promise.all([listRedirects(), searchParams])
 

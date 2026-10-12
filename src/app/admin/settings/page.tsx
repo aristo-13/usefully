@@ -1,13 +1,22 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 
 import { ProfileForm, PasswordForm } from '@/components/admin/settings-forms'
-import { PageHeader, Panel } from '@/components/admin/ui'
+import { AdminPageSkeleton, PageHeader, Panel } from '@/components/admin/ui'
 import { requireAdmin } from '@/lib/auth'
 import { siteConfig } from '@/lib/site'
 
 export const metadata: Metadata = { title: 'Settings' }
 
-export default async function AdminSettingsPage() {
+export default function AdminSettingsPage() {
+  return (
+    <Suspense fallback={<AdminPageSkeleton title="Settings" />}>
+      <Settings />
+    </Suspense>
+  )
+}
+
+async function Settings() {
   const admin = await requireAdmin()
   const siteUrlConfigured = Boolean(process.env.NEXT_PUBLIC_SITE_URL)
 

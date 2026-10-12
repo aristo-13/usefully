@@ -13,7 +13,10 @@ export const metadata: Metadata = {
 }
 
 // Every admin page checks the admin role itself (layouts are not re-run on
-// client navigation) and the database enforces it again through RLS.
+// client navigation) and the database enforces it again through RLS. Each page
+// also renders its data inside <Suspense fallback={<AdminPageSkeleton />}>:
+// fallbacks in this layout or in loading.tsx do not cover navigations between
+// admin pages, which would otherwise wait for the data before showing anything.
 export default function AdminLayout({ children }: LayoutProps<'/admin'>) {
   return (
     <div className="flex min-h-screen flex-col md:flex-row">

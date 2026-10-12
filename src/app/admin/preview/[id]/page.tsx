@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 
 import { ContentArticle } from '@/components/content/content-article'
-import { Notice } from '@/components/admin/ui'
+import { AdminPageSkeleton, Notice } from '@/components/admin/ui'
 import { getContentForPreview } from '@/lib/admin/queries'
 import { requireAdmin } from '@/lib/auth'
 import { contentPath, contentTypeConfig, statusLabels } from '@/lib/content/types'
@@ -12,7 +13,15 @@ export const metadata: Metadata = { title: 'Preview' }
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export default async function PreviewPage({ params }: PageProps<'/admin/preview/[id]'>) {
+export default function PreviewPage(props: PageProps<'/admin/preview/[id]'>) {
+  return (
+    <Suspense fallback={<AdminPageSkeleton />}>
+      <Preview {...props} />
+    </Suspense>
+  )
+}
+
+async function Preview({ params }: PageProps<'/admin/preview/[id]'>) {
   await requireAdmin()
   const { id } = await params
   if (!GUID.test(id)) notFound()

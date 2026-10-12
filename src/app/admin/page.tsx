@@ -1,8 +1,9 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Plus } from 'lucide-react'
+import { Suspense } from 'react'
 
-import { Notice, PageHeader, Panel, StatusBadge, tableClass, tdClass, thClass } from '@/components/admin/ui'
+import { AdminPageSkeleton, Notice, PageHeader, Panel, StatusBadge, tableClass, tdClass, thClass } from '@/components/admin/ui'
 import { buttonVariants } from '@/components/ui/button'
 import { getDashboardData } from '@/lib/admin/queries'
 import type { AdminContentRow } from '@/lib/admin/types'
@@ -36,7 +37,15 @@ function ItemList({ items, empty }: { items: AdminContentRow[]; empty: string })
   )
 }
 
-export default async function AdminDashboardPage() {
+export default function AdminDashboardPage() {
+  return (
+    <Suspense fallback={<AdminPageSkeleton title="Dashboard" />}>
+      <Dashboard />
+    </Suspense>
+  )
+}
+
+async function Dashboard() {
   const admin = await requireAdmin()
   const { counts, inReview, recent } = await getDashboardData()
 

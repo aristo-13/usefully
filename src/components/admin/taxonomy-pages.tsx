@@ -96,8 +96,9 @@ export async function TaxonomyIndex({
   )
 }
 
-export async function TaxonomyEdit({ kind, id }: { kind: Kind; id: string }) {
+export async function TaxonomyEdit({ kind, params }: { kind: Kind; params: Promise<{ id: string }> }) {
   await requireAdmin()
+  const { id } = await params
   if (!GUID.test(id)) notFound()
   const text = copy[kind]
   const item = await getTaxonomyItem(text.table, id)

@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
+import { Suspense } from 'react'
 
 import { DeleteButton } from '@/components/admin/delete-button'
 import { RedirectForm } from '@/components/admin/redirect-form'
-import { PageHeader, Panel } from '@/components/admin/ui'
+import { AdminPageSkeleton, PageHeader, Panel } from '@/components/admin/ui'
 import { getRedirect } from '@/lib/admin/queries'
 import { deleteRedirect } from '@/lib/admin/redirect-actions'
 import { requireAdmin } from '@/lib/auth'
@@ -14,7 +15,15 @@ export const metadata: Metadata = { title: 'Edit redirect' }
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-export default async function EditRedirectPage({ params }: PageProps<'/admin/redirects/[id]'>) {
+export default function EditRedirectPage(props: PageProps<'/admin/redirects/[id]'>) {
+  return (
+    <Suspense fallback={<AdminPageSkeleton />}>
+      <RedirectEditor {...props} />
+    </Suspense>
+  )
+}
+
+async function RedirectEditor({ params }: PageProps<'/admin/redirects/[id]'>) {
   await requireAdmin()
   const { id } = await params
   if (!GUID.test(id)) notFound()

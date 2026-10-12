@@ -1,10 +1,15 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 
 import { TaxonomyEdit } from '@/components/admin/taxonomy-pages'
+import { AdminPageSkeleton } from '@/components/admin/ui'
 
 export const metadata: Metadata = { title: 'Edit tag' }
 
-export default async function EditTagPage({ params }: PageProps<'/admin/tags/[id]'>) {
-  const { id } = await params
-  return <TaxonomyEdit kind="tag" id={id} />
+export default function EditTagPage({ params }: PageProps<'/admin/tags/[id]'>) {
+  return (
+    <Suspense fallback={<AdminPageSkeleton />}>
+      <TaxonomyEdit kind="tag" params={params} />
+    </Suspense>
+  )
 }

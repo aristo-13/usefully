@@ -35,6 +35,31 @@ export function PageHeader({
   )
 }
 
+/** Placeholder while an admin page loads its data. Pass the heading when it is known up front. */
+export function AdminPageSkeleton({ title }: { title?: string }) {
+  return (
+    <div aria-busy="true" aria-live="polite">
+      <span className="sr-only">Loading…</span>
+      {title ? (
+        <PageHeader
+          title={title}
+          description={<span className="inline-block h-4 w-80 max-w-full animate-pulse rounded bg-muted align-middle" />}
+        />
+      ) : (
+        <div className="mb-6 space-y-2">
+          <div className="h-8 w-56 max-w-full animate-pulse rounded-md bg-muted" />
+          <div className="h-4 w-80 max-w-full animate-pulse rounded bg-muted" />
+        </div>
+      )}
+      <div className="space-y-3 rounded-lg border border-border p-4">
+        {Array.from({ length: 6 }, (_, index) => (
+          <div key={index} className="h-6 animate-pulse rounded bg-muted" />
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const statusTones: Record<ContentStatus, BadgeTone> = {
   draft: 'neutral',
   in_review: 'warning',

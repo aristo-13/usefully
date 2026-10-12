@@ -1,10 +1,15 @@
 import type { Metadata } from 'next'
+import { Suspense } from 'react'
 
 import { ContentEditor } from '@/components/admin/content-editor'
+import { AdminPageSkeleton } from '@/components/admin/ui'
 
 export const metadata: Metadata = { title: 'Edit resource' }
 
-export default async function EditResourcePage({ params, searchParams }: PageProps<'/admin/resources/[id]'>) {
-  const { id } = await params
-  return <ContentEditor type="resource" id={id} searchParams={searchParams} />
+export default function EditResourcePage({ params, searchParams }: PageProps<'/admin/resources/[id]'>) {
+  return (
+    <Suspense fallback={<AdminPageSkeleton />}>
+      <ContentEditor type="resource" params={params} searchParams={searchParams} />
+    </Suspense>
+  )
 }

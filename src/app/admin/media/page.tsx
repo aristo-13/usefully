@@ -1,15 +1,24 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
+import { Suspense } from 'react'
 
 import { MediaCard } from '@/components/admin/media-card'
 import { MediaUploader } from '@/components/admin/media-uploader'
-import { PageHeader, Panel } from '@/components/admin/ui'
+import { AdminPageSkeleton, PageHeader, Panel } from '@/components/admin/ui'
 import { listMedia } from '@/lib/admin/queries'
 import { requireAdmin } from '@/lib/auth'
 
 export const metadata: Metadata = { title: 'Media' }
 
-export default async function AdminMediaPage({ searchParams }: PageProps<'/admin/media'>) {
+export default function AdminMediaPage(props: PageProps<'/admin/media'>) {
+  return (
+    <Suspense fallback={<AdminPageSkeleton title="Media" />}>
+      <MediaLibrary {...props} />
+    </Suspense>
+  )
+}
+
+async function MediaLibrary({ searchParams }: PageProps<'/admin/media'>) {
   await requireAdmin()
   const params = await searchParams
   const pageParam = Array.isArray(params.page) ? params.page[0] : params.page
