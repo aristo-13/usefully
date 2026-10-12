@@ -21,6 +21,19 @@ export function getSupabaseConfig(): SupabaseConfig | null {
   }
 }
 
+/**
+ * Auth cookie settings. The session is only ever read on the server (the
+ * dashboard uploads files with short-lived signed URLs instead of a browser
+ * session), so the cookies can be httpOnly: scripts on the page cannot read
+ * the tokens even if one were injected.
+ */
+export const authCookieOptions = {
+  httpOnly: true,
+  secure: process.env.NODE_ENV === 'production',
+  sameSite: 'lax',
+  path: '/',
+} as const
+
 export function isSupabaseConfigured(): boolean {
   return getSupabaseConfig() !== null
 }

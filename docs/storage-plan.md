@@ -24,4 +24,10 @@ Files offered on download pages.
 
 ## Uploads
 
-The dashboard uploads files straight from the browser to Supabase Storage with the editor's session, which avoids server request-size limits. A Server Action then validates and records the file.
+Files go straight from the browser to Supabase Storage, which avoids server request-size limits, but the browser never holds a Supabase session:
+
+1. The dashboard asks a Server Action for an upload. The action checks the admin role, validates the type and size, generates the path and returns a one-time signed upload URL for that path.
+2. The browser sends the file to that URL.
+3. Another Server Action validates and records the file (for images, in the `media` table). If recording fails, the action deletes the uploaded file.
+
+Because no browser code needs the session, the auth cookies are `httpOnly`.

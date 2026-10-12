@@ -2,7 +2,7 @@ import { createServerClient } from '@supabase/ssr'
 import { NextResponse, type NextRequest } from 'next/server'
 
 import type { Database } from '@/lib/database.types'
-import { getSupabaseConfig } from '@/lib/supabase/config'
+import { authCookieOptions, getSupabaseConfig } from '@/lib/supabase/config'
 
 /**
  * Refreshes the Supabase session cookie and keeps signed-out visitors out of
@@ -16,6 +16,7 @@ export async function updateSession(request: NextRequest) {
   if (!config) return response
 
   const supabase = createServerClient<Database>(config.url, config.key, {
+    cookieOptions: authCookieOptions,
     cookies: {
       getAll() {
         return request.cookies.getAll()

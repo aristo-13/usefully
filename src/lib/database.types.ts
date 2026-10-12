@@ -372,6 +372,7 @@ export type Database = {
         Args: {
           content_type?: string | null
           result_limit?: number
+          result_offset?: number
           search_query: string
         }
         Returns: {

@@ -3,13 +3,15 @@ import Link from 'next/link'
 import { Download, ExternalLink } from 'lucide-react'
 
 import { Breadcrumbs } from '@/components/content/breadcrumbs'
-import { ContentCard } from '@/components/content/content-card'
+import { ContentList } from '@/components/content/content-card'
 import { MarkdownContent } from '@/components/content/markdown-content'
+import { ShareButton } from '@/components/content/share-button'
 import { JsonLd } from '@/components/seo/json-ld'
 import { buttonVariants } from '@/components/ui/button'
 import { Container } from '@/components/ui/container'
 import { getRelatedContent } from '@/lib/content/queries'
 import {
+  contentPath,
   contentTypeConfig,
   difficultyLabels,
   type ContentDetail,
@@ -299,7 +301,10 @@ export async function ContentArticle({ item, preview = false }: { item: ContentD
             {item.excerpt ? (
               <p className="mt-4 text-lg leading-relaxed text-muted-foreground md:text-xl">{item.excerpt}</p>
             ) : null}
-            <ArticleMeta item={item} />
+            <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+              <ArticleMeta item={item} />
+              {preview ? null : <ShareButton path={contentPath(item.type, item.slug)} title={item.title} withLabel />}
+            </div>
           </header>
 
           {item.type === 'resource' ? <ResourcePanel item={item} preview={preview} /> : null}
@@ -335,13 +340,9 @@ export async function ContentArticle({ item, preview = false }: { item: ContentD
           <h2 id="related-heading" className="font-heading text-2xl font-semibold text-foreground">
             Related reading
           </h2>
-          <ul className="mt-2 grid gap-x-8 sm:grid-cols-2">
-            {related.map((entry) => (
-              <li key={entry.id} className="border-b border-border">
-                <ContentCard item={entry} showType headingLevel="h3" />
-              </li>
-            ))}
-          </ul>
+          <div className="mt-2">
+            <ContentList items={related} showType headingLevel="h3" layout="grid-3" />
+          </div>
         </section>
       ) : null}
     </Container>

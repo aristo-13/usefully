@@ -26,6 +26,8 @@ export async function generateMetadata({
     title: `${config.plural} – Page ${page}`,
     description: config.description,
     path: paginatedPath(config.path, page),
+    // Fallback pages for "Load more" without JavaScript: followed, not indexed.
+    noindex: true,
   })
 }
 

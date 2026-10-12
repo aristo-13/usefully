@@ -8,15 +8,10 @@ import { buttonVariants } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { idleState, type ActionState } from '@/lib/admin/action-state'
 import { createMediaRecord } from '@/lib/admin/media-actions'
-import { createClient } from '@/lib/supabase/client'
+import { prepareMediaUpload } from '@/lib/admin/upload-actions'
+import { createUploadClient } from '@/lib/supabase/client'
 
-const TYPES: Record<string, string> = {
-  'image/jpeg': 'jpg',
-  'image/png': 'png',
-  'image/webp': 'webp',
-  'image/gif': 'gif',
-  'image/avif': 'avif',
-}
+const TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']
 const MAX_BYTES = 5 * 1024 * 1024
 
 async function readDimensions(file: File): Promise<{ width: number | null; height: number | null }> {
@@ -36,23 +31,20 @@ export function MediaUploader() {
   const formRef = useRef<HTMLFormElement>(null)
 
   async function upload(file: File, altText: string): Promise<ActionState> {
-    const extension = TYPES[file.type]
-    if (!extension) return { status: 'error', message: 'Use a JPEG, PNG, WebP, GIF or AVIF image.' }
+    if (!TYPES.includes(file.type)) return { status: 'error', message: 'Use a JPEG, PNG, WebP, GIF or AVIF image.' }
     if (file.size > MAX_BYTES) return { status: 'error', message: 'Images must be 5 MB or smaller.' }
 
     const { width, height } = await readDimensions(file)
-    const now = new Date()
-    const month = String(now.getUTCMonth() + 1).padStart(2, '0')
-    const path = `${now.getUTCFullYear()}/${month}/${crypto.randomUUID()}.${extension}`
+    const prepared = await prepareMediaUpload({ mimeType: file.type, size: file.size })
+    if (!prepared.ok) return { status: 'error', message: prepared.message }
 
-    const supabase = createClient()
-    const { error } = await supabase.storage
-      .from('media')
-      .upload(path, file, { contentType: file.type, cacheControl: '31536000', upsert: false })
+    const { error } = await createUploadClient()
+      .storage.from('media')
+      .uploadToSignedUrl(prepared.path, prepared.token, file, { contentType: file.type, cacheControl: '31536000' })
     if (error) return { status: 'error', message: `Upload failed: ${error.message}` }
 
-    const result = await createMediaRecord({
-      path,
+    return createMediaRecord({
+      path: prepared.path,
       fileName: file.name.slice(0, 255),
       mimeType: file.type as 'image/jpeg',
       size: file.size,
@@ -60,11 +52,6 @@ export function MediaUploader() {
       height,
       altText,
     })
-    if (result.status === 'error') {
-      // Do not leave an untracked file behind.
-      await supabase.storage.from('media').remove([path])
-    }
-    return result
   }
 
   return (

@@ -3,10 +3,17 @@ import { notFound } from 'next/navigation'
 
 import { Breadcrumbs } from '@/components/content/breadcrumbs'
 import { ContentList } from '@/components/content/content-card'
-import { Pagination } from '@/components/content/pagination'
+import { LoadMore } from '@/components/content/load-more'
 import { Container } from '@/components/ui/container'
+import type { Feed } from '@/lib/content/feeds'
 import { getCategories, getContentPage } from '@/lib/content/queries'
-import { contentTypeConfig, paginatedPath, type ContentSummary, type ContentType, type Paginated } from '@/lib/content/types'
+import {
+  contentTypeConfig,
+  paginatedPath,
+  type ContentSummary,
+  type ContentType,
+  type Paginated,
+} from '@/lib/content/types'
 import type { BreadcrumbItem } from '@/lib/seo'
 
 export function EmptyState({ title, children }: { title: string; children?: React.ReactNode }) {
@@ -45,21 +52,24 @@ async function CategorySidebar({ activeSlug }: { activeSlug?: string }) {
   )
 }
 
-/** Shared frame for listing pages: breadcrumbs, heading, list, pagination and category sidebar. */
+/**
+ * Shared frame for listing pages: breadcrumbs, then the items. The page name
+ * is kept as a visually hidden <h1> for screen readers and search engines.
+ */
 export async function ListingLayout({
   breadcrumbs,
-  title,
-  description,
+  heading,
   result,
+  feed,
   basePath,
   showType,
   activeCategory,
   emptyMessage,
 }: {
   breadcrumbs: BreadcrumbItem[]
-  title: string
-  description: React.ReactNode
+  heading: string
   result: Paginated<ContentSummary>
+  feed: Feed
   basePath: string
   showType: boolean
   activeCategory?: string
@@ -68,25 +78,25 @@ export async function ListingLayout({
   return (
     <Container className="py-8 md:py-10">
       <Breadcrumbs items={breadcrumbs} />
+      <h1 className="sr-only">{heading}</h1>
       <div className="mt-6 grid gap-10 lg:grid-cols-[minmax(0,1fr)_15rem]">
         <div className="min-w-0">
-          <header className="max-w-3xl">
-            <h1 className="font-heading text-3xl font-semibold text-foreground md:text-[2.6rem]">{title}</h1>
-            <div className="mt-3 text-lg leading-relaxed text-muted-foreground">{description}</div>
-            {result.page > 1 ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Page {result.page} of {result.totalPages}
-              </p>
-            ) : null}
-          </header>
-          <div className="mt-8">
-            {result.items.length ? (
+          {result.items.length ? (
+            <>
               <ContentList items={result.items} showType={showType} />
-            ) : (
-              <EmptyState title={emptyMessage} />
-            )}
-            <Pagination basePath={basePath} page={result.page} totalPages={result.totalPages} />
-          </div>
+              <LoadMore
+                feed={feed}
+                nextPage={result.page + 1}
+                hasMore={result.page < result.totalPages}
+                hrefTemplate={`${basePath}/page/{page}`}
+                seenIds={result.items.map((item) => item.id)}
+                showType={showType}
+                label="Load more"
+              />
+            </>
+          ) : (
+            <EmptyState title={emptyMessage} />
+          )}
         </div>
         <CategorySidebar activeSlug={activeCategory} />
       </div>
@@ -104,9 +114,9 @@ export async function ContentTypeListing({ type, page }: { type: ContentType; pa
       breadcrumbs={
         page > 1 ? [{ name: config.plural, path: config.path }, { name: `Page ${page}` }] : [{ name: config.plural }]
       }
-      title={config.plural}
-      description={config.description}
+      heading={listingTitle(config.plural, page)}
       result={result}
+      feed={{ kind: 'type', type }}
       basePath={config.path}
       showType={false}
       emptyMessage={`No ${config.plural.toLowerCase()} have been published yet.`}

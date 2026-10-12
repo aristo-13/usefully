@@ -5,6 +5,7 @@ import { Suspense } from 'react'
 import { Breadcrumbs } from '@/components/content/breadcrumbs'
 import { ContentList } from '@/components/content/content-card'
 import { EmptyState } from '@/components/content/listing'
+import { LoadMore } from '@/components/content/load-more'
 import { SearchBox } from '@/components/site/search-box'
 import { Container } from '@/components/ui/container'
 import { searchContent } from '@/lib/content/queries'
@@ -25,10 +26,12 @@ function firstValue(value: string | string[] | undefined): string {
   return (raw ?? '').trim().slice(0, 200)
 }
 
-function searchHref(query: string, type: ContentType | null) {
+function searchHref(query: string, type: ContentType | null, page?: string) {
   const params = new URLSearchParams({ q: query })
   if (type) params.set('type', type)
-  return `/search?${params.toString()}`
+  if (page) params.set('page', page)
+  // Keep the {page} placeholder readable for LoadMore.
+  return `/search?${params.toString().replace('%7Bpage%7D', '{page}')}`
 }
 
 async function SearchResults({ searchParams }: Pick<PageProps<'/search'>, 'searchParams'>) {
@@ -36,8 +39,11 @@ async function SearchResults({ searchParams }: Pick<PageProps<'/search'>, 'searc
   const query = firstValue(params.q)
   const typeParam = firstValue(params.type)
   const type = isContentType(typeParam) ? typeParam : null
+  const page = Math.max(1, Math.min(1000, Number.parseInt(firstValue(params.page), 10) || 1))
   const searched = query.length >= 2
-  const { ok, results } = searched ? await searchContent(query, type) : { ok: true, results: [] }
+  const { ok, results, hasMore } = searched
+    ? await searchContent(query, type, page)
+    : { ok: true, results: [], hasMore: false }
 
   return (
     <>
@@ -67,16 +73,31 @@ async function SearchResults({ searchParams }: Pick<PageProps<'/search'>, 'searc
             </ul>
           </nav>
 
-          <p role="status" className="mt-6 text-sm text-muted-foreground">
+          <p role="status" className="sr-only">
             {ok
-              ? `${results.length === 30 ? '30+' : results.length} ${results.length === 1 ? 'result' : 'results'} for “${query}”`
-              : 'Search is temporarily unavailable. Please try again in a moment.'}
+              ? results.length
+                ? `Showing results for “${query}”.`
+                : `No results for “${query}”.`
+              : 'Search is temporarily unavailable.'}
           </p>
 
-          <div className="mt-4">
-            {results.length ? (
-              <ContentList items={results} showType />
-            ) : ok ? (
+          <div className="mt-6">
+            {!ok ? (
+              <EmptyState title="Search is temporarily unavailable.">Please try again in a moment.</EmptyState>
+            ) : results.length ? (
+              <>
+                <ContentList items={results} showType />
+                <LoadMore
+                  feed={{ kind: 'search', query, type }}
+                  nextPage={page + 1}
+                  hasMore={hasMore}
+                  hrefTemplate={searchHref(query, type, '{page}')}
+                  seenIds={results.map((item) => item.id)}
+                  showType
+                  label="Load more"
+                />
+              </>
+            ) : (
               <EmptyState title="No matching pages found.">
                 Try fewer or different words, or browse the{' '}
                 <Link href="/categories" className="text-link underline">
@@ -84,7 +105,7 @@ async function SearchResults({ searchParams }: Pick<PageProps<'/search'>, 'searc
                 </Link>
                 .
               </EmptyState>
-            ) : null}
+            )}
           </div>
         </>
       ) : (
@@ -100,7 +121,6 @@ function SearchFallback() {
   return (
     <div aria-hidden className="mt-6 space-y-4">
       <div className="h-12 max-w-2xl animate-pulse rounded-md bg-muted" />
-      <div className="h-4 w-48 animate-pulse rounded bg-muted" />
       <div className="h-24 animate-pulse rounded-md bg-muted" />
     </div>
   )
@@ -110,7 +130,7 @@ export default function SearchPage({ searchParams }: PageProps<'/search'>) {
   return (
     <Container className="py-8 md:py-10">
       <Breadcrumbs items={[{ name: 'Search' }]} />
-      <h1 className="mt-6 font-heading text-3xl font-semibold text-foreground md:text-[2.6rem]">Search</h1>
+      <h1 className="sr-only">Search</h1>
       <Suspense fallback={<SearchFallback />}>
         <SearchResults searchParams={searchParams} />
       </Suspense>

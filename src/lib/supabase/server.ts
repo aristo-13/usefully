@@ -4,7 +4,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
 import type { Database } from '@/lib/database.types'
-import { getSupabaseConfig } from '@/lib/supabase/config'
+import { authCookieOptions, getSupabaseConfig } from '@/lib/supabase/config'
 
 /**
  * Supabase client bound to the visitor's auth cookies. Use it for admin pages
@@ -22,6 +22,7 @@ export async function createClient() {
   const cookieStore = await cookies()
 
   return createServerClient<Database>(config.url, config.key, {
+    cookieOptions: authCookieOptions,
     cookies: {
       getAll() {
         return cookieStore.getAll()

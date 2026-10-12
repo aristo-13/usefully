@@ -1,6 +1,6 @@
 # Database
 
-The schema lives in [`supabase/migrations/20261011120000_initial_schema.sql`](../supabase/migrations/20261011120000_initial_schema.sql). This page summarizes it.
+The schema lives in [`supabase/migrations/`](../supabase/migrations) (apply the files in order). This page summarizes it.
 
 All four content types share one table, so search, tags, categories, the sitemap and the editor work the same way for every type.
 
@@ -37,7 +37,7 @@ Custom short links served at `/go/<slug>`: `slug` (unique), `destination_url`, `
 
 | Function | Access | Purpose |
 | --- | --- | --- |
-| `search_content(query, type, limit)` | everyone (RLS applies) | Ranked full-text search with a partial-title fallback. Published items only. |
+| `search_content(query, type, limit, offset)` | everyone (RLS applies) | Ranked full-text search with a partial-title fallback, paged for "Load more". Published items only. |
 | `resolve_go_link(slug)` | everyone (security definer) | Returns the target of an active redirect or a published resource/download and increments its click counter. |
 | `category_counts()`, `tag_counts()` | everyone | Published item counts. |
 | `content_status_counts()` | signed-in (RLS applies) | Dashboard counts by type and status. |

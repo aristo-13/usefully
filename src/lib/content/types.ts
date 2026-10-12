@@ -80,7 +80,8 @@ export function paginatedPath(basePath: string, page: number): string {
   return page <= 1 ? basePath : `${basePath}/page/${page}`
 }
 
-export const PAGE_SIZE = 12
+/** Items per batch: lists show this many, and "Load more" fetches this many again. */
+export const PAGE_SIZE = 3
 
 /** Tag pages with fewer published items than this are thin and kept out of the index. */
 export const MIN_INDEXABLE_TAG_ITEMS = 2

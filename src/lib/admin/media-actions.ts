@@ -44,7 +44,9 @@ export async function createMediaRecord(input: MediaRecordInput): Promise<Action
 
   if (error) {
     console.error(`[admin] media record failed: ${error.message}`)
-    return errorState('The image was uploaded but could not be saved to the library.')
+    // Do not leave an untracked file behind.
+    await supabase.storage.from('media').remove([path])
+    return errorState('The image could not be saved to the library. Please try again.')
   }
 
   refresh()

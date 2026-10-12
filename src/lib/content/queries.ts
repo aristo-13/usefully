@@ -74,32 +74,6 @@ function toPageResult(
   }
 }
 
-export async function getLatestContent(
-  type: ContentType | null,
-  limit: number,
-): Promise<ContentSummary[]> {
-  'use cache'
-  cacheTag(PUBLIC_CONTENT_TAG)
-
-  const supabase = getPublicClient()
-  if (!supabase) {
-    cacheLife('minutes')
-    return []
-  }
-
-  let query = supabase.from('content_items').select(SUMMARY_SELECT).eq('status', 'published')
-  if (type) query = query.eq('type', type)
-  const { data, error } = await query.order('published_at', { ascending: false }).limit(limit)
-
-  if (error) {
-    logQueryError('getLatestContent', error)
-    cacheLife('minutes')
-    return []
-  }
-  cacheLife('hours')
-  return toSummaries(data)
-}
-
 export async function getContentPage(
   filter: { type?: ContentType; categoryId?: string },
   page: number,
@@ -259,7 +233,7 @@ export async function getPublishedContent(
 /** Up to `limit` items from the same category, topped up with the same type. */
 export async function getRelatedContent(
   item: { id: string; type: ContentType; categoryId: string | null },
-  limit = 4,
+  limit = PAGE_SIZE,
 ): Promise<ContentSummary[]> {
   'use cache'
   cacheTag(PUBLIC_CONTENT_TAG)
@@ -458,34 +432,39 @@ export async function getSitemapContent(): Promise<SitemapContent[]> {
 
 export type SearchResult = ContentSummary & { rank: number }
 
+/** One page (PAGE_SIZE results) of search results. */
 export async function searchContent(
   query: string,
   type: ContentType | null,
-): Promise<{ ok: boolean; results: SearchResult[] }> {
+  page = 1,
+): Promise<{ ok: boolean; results: SearchResult[]; hasMore: boolean }> {
   'use cache'
   cacheTag(PUBLIC_CONTENT_TAG)
 
   const supabase = getPublicClient()
   if (!supabase) {
     cacheLife('minutes')
-    return { ok: false, results: [] }
+    return { ok: false, results: [], hasMore: false }
   }
 
+  // One extra row tells us whether another page exists.
   const { data, error } = await supabase.rpc('search_content', {
     search_query: query,
     content_type: type,
-    result_limit: 30,
+    result_limit: PAGE_SIZE + 1,
+    result_offset: (page - 1) * PAGE_SIZE,
   })
 
   if (error) {
     logQueryError('searchContent', error)
     cacheLife('minutes')
-    return { ok: false, results: [] }
+    return { ok: false, results: [], hasMore: false }
   }
 
   cacheLife('hours')
+  const rows = data ?? []
   const results: SearchResult[] = []
-  for (const row of data ?? []) {
+  for (const row of rows.slice(0, PAGE_SIZE)) {
     const [summary] = toSummaries([
       {
         id: row.id,
@@ -503,5 +482,5 @@ export async function searchContent(
     ])
     if (summary) results.push({ ...summary, rank: row.rank })
   }
-  return { ok: true, results }
+  return { ok: true, results, hasMore: rows.length > PAGE_SIZE }
 }

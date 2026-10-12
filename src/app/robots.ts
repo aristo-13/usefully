@@ -8,8 +8,8 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        // Private areas, outbound redirects and internal search results.
-        disallow: ['/admin', '/auth', '/go/', '/search'],
+        // Private areas, the load-more API, outbound redirects and internal search results.
+        disallow: ['/admin', '/auth', '/api/', '/go/', '/search'],
       },
     ],
     sitemap: absoluteUrl('/sitemap.xml'),

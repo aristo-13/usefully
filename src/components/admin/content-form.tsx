@@ -10,6 +10,7 @@ import { StatusBadge } from '@/components/admin/ui'
 import { buttonVariants } from '@/components/ui/button'
 import { Input, Select, Textarea } from '@/components/ui/input'
 import { saveContent } from '@/lib/admin/content-actions'
+import { prepareDownloadUpload } from '@/lib/admin/upload-actions'
 import type { EditableContent, MediaOption, Option } from '@/lib/admin/types'
 import {
   DIFFICULTIES,
@@ -19,7 +20,7 @@ import {
   type ContentType,
   type Source,
 } from '@/lib/content/types'
-import { createClient } from '@/lib/supabase/client'
+import { createUploadClient } from '@/lib/supabase/client'
 import { cn, formatBytes, formatDate, slugify } from '@/lib/utils'
 
 type FileInfo = { path: string; name: string; size: number; mime: string }
@@ -124,19 +125,14 @@ function DownloadFileField({
     }
     setUploading(true)
     try {
-      const safeName =
-        selected.name
-          .normalize('NFKD')
-          .replace(/[^A-Za-z0-9._-]+/g, '-')
-          .replace(/^-+|-+$/g, '')
-          .slice(-200) || 'file'
-      const path = `${crypto.randomUUID()}/${safeName}`
+      const prepared = await prepareDownloadUpload({ fileName: selected.name, size: selected.size })
+      if (!prepared.ok) throw new Error(prepared.message)
       const mime = selected.type || 'application/octet-stream'
-      const { error: storageError } = await createClient()
+      const { error: storageError } = await createUploadClient()
         .storage.from('downloads')
-        .upload(path, selected, { contentType: mime, upsert: false })
+        .uploadToSignedUrl(prepared.path, prepared.token, selected, { contentType: mime })
       if (storageError) throw storageError
-      onChange({ path, name: selected.name.slice(0, 255), size: selected.size, mime })
+      onChange({ path: prepared.path, name: selected.name.slice(0, 255), size: selected.size, mime })
     } catch (caught) {
       const message = caught instanceof Error ? caught.message : 'Unknown error'
       setUploadError(`Upload failed: ${message}`)

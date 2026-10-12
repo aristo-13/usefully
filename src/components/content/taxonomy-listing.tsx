@@ -10,12 +10,14 @@ import {
   type TaxonomyEntry,
 } from '@/lib/content/queries'
 import { isValidSlug } from '@/lib/content/routes'
+import { categoryBlurb } from '@/components/content/category-card'
 import { MIN_INDEXABLE_TAG_ITEMS, paginatedPath } from '@/lib/content/types'
 import { pageMetadata } from '@/lib/seo'
 import { siteConfig } from '@/lib/site'
 
+/** Used as the meta description (descriptions are not shown on the page). */
 export function categoryDescription(category: TaxonomyEntry) {
-  return category.description || `Articles, tutorials, resources and downloads about ${category.name}.`
+  return categoryBlurb(category)
 }
 
 export function tagDescription(tag: TaxonomyEntry) {
@@ -39,7 +41,8 @@ export async function categoryMetadata(slug: string, page: number): Promise<Meta
     title: listingTitle(category.name, page),
     description: categoryDescription(category),
     path: paginatedPath(`/categories/${category.slug}`, page),
-    noindex: category.count === 0,
+    // Later pages exist for "Load more" without JavaScript; crawlers follow them but they are not indexed.
+    noindex: category.count === 0 || page > 1,
   })
 }
 
@@ -50,7 +53,7 @@ export async function tagMetadata(slug: string, page: number): Promise<Metadata>
     title: listingTitle(`Tagged “${tag.name}”`, page),
     description: tagDescription(tag),
     path: paginatedPath(`/tags/${tag.slug}`, page),
-    noindex: tag.count < MIN_INDEXABLE_TAG_ITEMS,
+    noindex: tag.count < MIN_INDEXABLE_TAG_ITEMS || page > 1,
   })
 }
 
@@ -70,9 +73,9 @@ export async function CategoryListing({ slug, page }: { slug: string; page: numb
           ? [{ name: category.name, path: basePath }, { name: `Page ${page}` }]
           : [{ name: category.name }]),
       ]}
-      title={category.name}
-      description={categoryDescription(category)}
+      heading={listingTitle(category.name, page)}
       result={result}
+      feed={{ kind: 'category', slug: category.slug }}
       basePath={basePath}
       showType
       activeCategory={category.slug}
@@ -96,9 +99,9 @@ export async function TagListing({ slug, page }: { slug: string; page: number })
           ? [{ name: `Tag: ${tag.name}`, path: basePath }, { name: `Page ${page}` }]
           : [{ name: `Tag: ${tag.name}` }]
       }
-      title={`Tagged “${tag.name}”`}
-      description={tagDescription(tag)}
+      heading={listingTitle(`Tagged “${tag.name}”`, page)}
       result={result}
+      feed={{ kind: 'tag', slug: tag.slug }}
       basePath={basePath}
       showType
       emptyMessage="Nothing has been published with this tag yet."
