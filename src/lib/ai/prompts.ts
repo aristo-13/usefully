@@ -68,7 +68,8 @@ Rules for the other fields
 - Keywords: five to ten phrases people actually search for, most important first, each under 50 characters.
 - Tags: two to five short topics of one to three words in Title Case, broad enough to group several posts. Reuse existing tags when they fit.
 - Category: exactly one of the existing categories.
-- Alt text: one sentence under 150 characters describing what the image shows for someone who cannot see it, without "Image of" or "Picture of".`
+- Alt text: one sentence under 150 characters describing what the image shows for someone who cannot see it, without "Image of" or "Picture of".
+- Cover photo searches: two or three searches for a free stock photo library, best first, each of two to five plain English words describing a photo that would suit the post, such as "ballot box", "Accra city traffic" or "soccer stadium at night". Describe an object, scene, place or activity: stock libraries have no photos of particular people, events or brands, so never use their names. For posts about real people, conflicts, crime, illness or scandal, choose a symbolic object or scene without recognisable faces.`
 
 const BODY_SHAPES: Record<ContentType, string> = {
   article:
@@ -99,7 +100,8 @@ const SHORT_TASKS: Record<ShortField, string> = {
   category: 'Choose the category that fits the post best.',
   difficulty: 'Choose the difficulty of this tutorial: beginner, intermediate or advanced.',
   cover_alt: 'Write the alt text for the attached cover image of this post.',
-  meta: 'Write every short field for this post from its body: title, URL slug, summary, SEO title, meta description, keywords and tags, plus the category and difficulty when asked for. If the current title is only a topic or a search term, turn it into a real headline.',
+  cover_photo: 'Write the cover photo searches for this post.',
+  meta: 'Write every short field for this post from its body: title, URL slug, summary, SEO title, meta description, keywords, tags and cover photo searches, plus the category and difficulty when asked for. If the current title is only a topic or a search term, turn it into a real headline.',
 }
 
 export const STATUS: Record<ShortField, string> = {
@@ -113,6 +115,7 @@ export const STATUS: Record<ShortField, string> = {
   category: 'Choosing the category…',
   difficulty: 'Choosing the difficulty…',
   cover_alt: 'Describing the image…',
+  cover_photo: 'Deciding what the cover photo should show…',
   meta: 'Writing the title, summary, search fields, keywords and tags…',
 }
 
@@ -207,6 +210,9 @@ export function precheck(field: ShortField, request: AiRequest, context: WriterC
     return { type: 'error', message: 'Create a category first; the AI chooses from the existing ones.' }
   }
   if (field === 'cover_alt' && !request.imageUrl) return { type: 'error', message: 'Add a cover image first.' }
+  if (field === 'cover_photo' && !request.post.title.trim() && !request.post.body.trim() && !request.reference) {
+    return { type: 'error', message: 'Add a title or write the post first, so the AI knows what the photo should show.' }
+  }
   return null
 }
 
@@ -226,6 +232,7 @@ export function shortSpec(field: ShortField, request: AiRequest, context: Writer
   switch (field) {
     case 'keywords':
     case 'tags':
+    case 'cover_photo':
       schema = z.object({ value: z.array(z.string()) })
       break
     case 'category':
@@ -241,6 +248,7 @@ export function shortSpec(field: ShortField, request: AiRequest, context: Writer
         seo_description: z.string(),
         keywords: z.array(z.string()),
         tags: z.array(z.string()),
+        photo_searches: z.array(z.string()),
         ...(categories.length ? { category: z.string() } : {}),
         ...(tutorial ? { difficulty: z.string() } : {}),
       })
@@ -303,6 +311,7 @@ function cleanMeta(output: Record<string, unknown>, request: AiRequest, context:
     tags: cleanList(output.tags, 5),
     category: matchOption(output.category, uniqueNames(context.categories)),
     difficulty: request.post.type === 'tutorial' ? matchOption(output.difficulty, DIFFICULTIES) : null,
+    photoSearches: cleanList(output.photo_searches, 3),
   }
 }
 
@@ -313,6 +322,8 @@ function cleanValue(field: Exclude<ShortField, 'meta'>, value: unknown, request:
       return cleanList(value, 10)
     case 'tags':
       return cleanList(value, 5)
+    case 'cover_photo':
+      return cleanList(value, 3)
     case 'category':
       return matchOption(value, uniqueNames(context.categories)) ?? ''
     case 'difficulty':

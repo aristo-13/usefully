@@ -167,7 +167,7 @@ export function useAiWriter(
     }
   }
 
-  return { active, status, feedback, setFeedback, run, stop: () => controller.current?.abort() }
+  return { active, status, setStatus, feedback, setFeedback, run, stop: () => controller.current?.abort() }
 }
 
 /** The "Write with AI" control shown next to a field's label. */
@@ -199,7 +199,7 @@ export function AiButton({
     return (
       <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
         <LoaderCircle aria-hidden className="size-3.5 animate-spin text-brand" />
-        Writing…
+        {field === 'cover_photo' ? 'Finding a photo…' : 'Writing…'}
         <button type="button" onClick={onStop} className={buttonVariants({ variant: 'ghost', size: 'xs' })}>
           <Square aria-hidden />
           Stop
@@ -371,6 +371,7 @@ function LinkReference({
 /** Instructions for the AI and "Write the whole post", at the top of the editor. */
 export function AiPanel({
   provider,
+  coverPhotos,
   trend,
   reference,
   onReference,
@@ -387,6 +388,8 @@ export function AiPanel({
 }: {
   /** Who writes; null when no AI key is set. */
   provider: AiProvider | null
+  /** Free cover photos are set up: a post without a cover gets one. */
+  coverPhotos: boolean
   trend: AiTrend | null
   reference: AiReference | null
   onReference: (reference: AiReference | null) => void
@@ -510,8 +513,8 @@ export function AiPanel({
         ) : null}
       </div>
       <p className="text-xs text-muted-foreground">
-        Writes the body, then the title, summary, search fields, keywords, tags and category. Each field also has its own
-        AI button.
+        Writes the body, then the title, summary, search fields, keywords, tags and category
+        {coverPhotos ? ', and picks a free cover photo if there is none' : ''}. Each field also has its own AI button.
       </p>
     </fieldset>
   )

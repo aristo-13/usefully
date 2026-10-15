@@ -3,7 +3,10 @@
 
 import type { ContentStatus, ContentType, Difficulty, Source } from '@/lib/content/types'
 
-/** Post fields the AI writer can fill in. `meta` writes every short field in one go. */
+/**
+ * Post fields the AI writer can fill in. `meta` writes every short field in one
+ * go; `cover_photo` writes searches for a stock photo (see stock-photos.ts).
+ */
 export const AI_FIELDS = [
   'title',
   'slug',
@@ -16,6 +19,7 @@ export const AI_FIELDS = [
   'category',
   'difficulty',
   'cover_alt',
+  'cover_photo',
   'meta',
 ] as const
 export type AiField = (typeof AI_FIELDS)[number]
@@ -88,6 +92,8 @@ export type AiMeta = {
   tags: string[]
   category: string | null
   difficulty: Difficulty | null
+  /** What a cover photo could show, as searches for a stock photo library, best first. */
+  photoSearches: string[]
 }
 
 /** One line of the newline-delimited JSON the AI writer streams back. */

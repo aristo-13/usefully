@@ -6,6 +6,7 @@ import {
   useEffectEvent,
   useRef,
   useState,
+  useTransition,
   type Dispatch,
   type FormEvent,
   type ReactNode,
@@ -14,14 +15,16 @@ import {
 import { ExternalLink, Eye, Plus, Upload, X } from 'lucide-react'
 
 import { AiButton, AiPanel, AiToast, useAiWriter, type AiCall, type AiTarget } from '@/components/admin/ai-writer'
+import { CoverPhotos } from '@/components/admin/cover-photos'
 import { CharacterCount, Field, FormMessage, fieldAria, useActionForm } from '@/components/admin/form'
 import { MediaField } from '@/components/admin/media-field'
 import { StatusBadge } from '@/components/admin/ui'
 import { buttonVariants } from '@/components/ui/button'
 import { Input, Select, Textarea } from '@/components/ui/input'
 import { saveContent } from '@/lib/admin/content-actions'
+import { searchCoverPhotos } from '@/lib/admin/photo-actions'
 import { prepareDownloadUpload } from '@/lib/admin/upload-actions'
-import type { ContentDraft, EditableContent, MediaOption, Option } from '@/lib/admin/types'
+import type { ContentDraft, EditableContent, MediaOption, Option, PhotoSearchResult, StockPhoto } from '@/lib/admin/types'
 import type { AiField, AiMeta, AiPost, AiProvider, AiReference } from '@/lib/ai/fields'
 import {
   DIFFICULTIES,
@@ -36,6 +39,12 @@ import { cn, formatBytes, formatDate, slugify } from '@/lib/utils'
 
 type FileInfo = { path: string; name: string; size: number; mime: string }
 type SourceRow = Source & { key: number }
+/** What the cover field starts from; it is remounted with a new one when the AI picks a photo. */
+type CoverValue = { id: string | null; libraryUrl: string | null; url: string; alt: string }
+type PhotoSearch = { run: number; searches: string[]; photos: StockPhoto[] | null; message: string | null }
+
+/** Credits for Pexels photos are links to the photo's page. */
+const PEXELS_PHOTO_PAGE = 'https://www.pexels.com/photo/'
 
 const MAX_DOWNLOAD_BYTES = 50 * 1024 * 1024
 
@@ -241,6 +250,7 @@ export function ContentForm({
   notice,
   draft,
   aiProvider,
+  photosEnabled,
 }: {
   type: ContentType
   item: EditableContent | null
@@ -255,6 +265,8 @@ export function ContentForm({
   notice?: string
   /** Who the AI writer uses (from the API keys that are set); null when it is off. */
   aiProvider: AiProvider | null
+  /** A Pexels API key is set: free cover photos can be searched for. */
+  photosEnabled: boolean
 }) {
   const aiEnabled = aiProvider !== null
   const config = contentTypeConfig[type]
@@ -303,6 +315,18 @@ export function ContentForm({
   const [reference, setReference] = useState<AiReference | null>(null)
   const [undo, setUndo] = useState<{ target: AiTarget; restore: () => void } | null>(null)
   const ai = useAiWriter(() => ({ guidance, research, trend, reference }))
+  const [cover, setCover] = useState<{ key: number; initial: CoverValue }>(() => ({
+    key: 0,
+    initial: {
+      id: item?.coverMediaId ?? null,
+      libraryUrl: item?.coverMediaUrl ?? null,
+      url: item?.coverImageUrl ?? '',
+      alt: item?.coverAlt ?? '',
+    },
+  }))
+  const [coverUrl, setCoverUrl] = useState<string | null>(item?.coverMediaUrl ?? (item?.coverImageUrl || null))
+  const [photoSearch, setPhotoSearch] = useState<PhotoSearch>({ run: 0, searches: [], photos: null, message: null })
+  const [searchingPhotos, startPhotoSearch] = useTransition()
   const busy = ai.active !== null
   const bodyStreaming = ai.active === 'body' || ai.active === 'all'
 
@@ -374,6 +398,93 @@ export function ContentForm({
         .map(({ title: sourceTitle, url, publisher }) => ({ title: sourceTitle, url, ...(publisher ? { publisher } : {}) })),
       ...overrides,
     }
+  }
+
+  /** The cover as the editor has it now (from the cover field's inputs). */
+  function coverNow(form: HTMLFormElement | null): CoverValue {
+    const data = form ? new FormData(form) : null
+    const read = (name: string) => {
+      const value = data?.get(name)
+      return typeof value === 'string' ? value : ''
+    }
+    const id = read('cover_media_id')
+    const libraryUrl = id
+      ? (media.find((option) => option.id === id)?.url ?? (id === item?.coverMediaId ? item.coverMediaUrl : null))
+      : null
+    return { id: id || null, libraryUrl, url: read('cover_image_url'), alt: read('cover_alt') }
+  }
+
+  function restoreCover(saved: CoverValue) {
+    setCover((current) => ({ key: current.key + 1, initial: saved }))
+    setCoverUrl(saved.id ? saved.libraryUrl : saved.url || null)
+  }
+
+  /** Makes a Pexels photo the cover, with its description as alt text, and credits the photographer under Sources. */
+  function applyPhoto(photo: StockPhoto) {
+    setCover((current) => ({ key: current.key + 1, initial: { id: null, libraryUrl: null, url: photo.src, alt: photo.alt } }))
+    setCoverUrl(photo.src)
+    setSources((rows) => {
+      const kept = rows.filter((row) => !row.url.startsWith(PEXELS_PHOTO_PAGE))
+      if (kept.length >= 30) return kept
+      const key = rows.reduce((max, row) => Math.max(max, row.key), -1) + 1
+      return [...kept, { title: `Cover photo by ${photo.photographer}`, url: photo.page, publisher: 'Pexels', key }]
+    })
+    setDirty(true)
+  }
+
+  /** Shows the photos found for a search (by the AI when `fromAi`, which also refills the search box). */
+  function showPhotos(searches: string[], found: PhotoSearchResult | null, fromAi: boolean) {
+    setPhotoSearch((current) => ({
+      run: fromAi ? current.run + 1 : current.run,
+      searches,
+      photos: found?.ok ? found.photos : current.photos,
+      message: !found
+        ? 'The photo search failed. Check your connection and try again.'
+        : !found.ok
+          ? found.message
+          : found.photos.length
+            ? null
+            : `No photos found for “${searches.join('”, “')}”. Try other words.`,
+    }))
+  }
+
+  function searchPhotos(query: string) {
+    startPhotoSearch(async () => {
+      showPhotos([query], await searchCoverPhotos([query]).catch(() => null), false)
+    })
+  }
+
+  /** The AI decides what the photo should show, then the best match from Pexels becomes the cover. */
+  function findCoverPhoto(form: HTMLFormElement | null) {
+    if (busy) return
+    const before = { cover: coverNow(form), sources }
+    void ai.run('cover_photo', async (call) => {
+      const { value } = await call('cover_photo', currentPost(form))
+      const searches = Array.isArray(value) ? value : []
+      ai.setStatus('Searching Pexels for a photo…')
+      const found = await searchCoverPhotos(searches)
+      showPhotos(searches, found, true)
+      if (!found.ok) {
+        ai.setFeedback({ tone: 'error', text: found.message })
+        return
+      }
+      if (!found.photos.length) {
+        ai.setFeedback({ tone: 'notice', text: 'No photo matched. Try your own words under Free photos.' })
+        return
+      }
+      applyPhoto(found.photos[0])
+      setUndo({
+        target: 'cover_photo',
+        restore: () => {
+          restoreCover(before.cover)
+          setSources(before.sources)
+        },
+      })
+      ai.setFeedback({
+        tone: 'success',
+        text: 'Cover photo added from Pexels. Check that it suits the post and its alt text, or pick another under Free photos.',
+      })
+    })
   }
 
   function snapshot() {
@@ -469,27 +580,59 @@ export function ContentForm({
     if (busy) return
     if (body.trim() && !window.confirm('Replace this post with a new AI draft? You can undo it afterwards.')) return
     const saved = snapshot()
+    const savedCover = coverNow(form)
+    const needsCover = photosEnabled && !savedCover.id && !savedCover.url
     let bodyWritten = false
+    let coverAdded = false
+    const undoAll = () => {
+      restoreAll(saved)
+      if (coverAdded) restoreCover(savedCover)
+    }
     const notices = await ai.run('all', async (call) => {
       const post = currentPost(form)
       const written = await streamBody(call, post, saved.body)
       bodyWritten = true
       const meta = await call('meta', { ...post, body: written.body, sources: [...post.sources, ...written.sources] })
-      if (meta.value && typeof meta.value === 'object' && !Array.isArray(meta.value)) applyMeta(meta.value)
-      return [...written.notices, ...meta.notices]
+      const extra: string[] = []
+      if (meta.value && typeof meta.value === 'object' && !Array.isArray(meta.value)) {
+        applyMeta(meta.value)
+        // No cover yet: use the best free photo for the AI's searches (no extra AI request).
+        const searches = meta.value.photoSearches
+        if (needsCover && searches.length) {
+          ai.setStatus('Choosing a cover photo…')
+          const found = await searchCoverPhotos(searches).catch(() => null)
+          showPhotos(searches, found, true)
+          if (found?.ok && found.photos[0]) {
+            applyPhoto(found.photos[0])
+            coverAdded = true
+          } else {
+            extra.push(
+              found && !found.ok
+                ? `No cover photo was added: ${found.message}`
+                : 'No cover photo was added: no free photo matched. Search under Free photos.',
+            )
+          }
+        }
+      }
+      return [...written.notices, ...meta.notices, ...extra]
     })
     if (notices === null) {
       // Failed or stopped: keep a finished body (undo is offered), discard a half-written one.
-      if (bodyWritten) setUndo({ target: 'all', restore: () => restoreAll(saved) })
+      if (bodyWritten) setUndo({ target: 'all', restore: undoAll })
       else setBody(saved.body)
       return
     }
-    setUndo({ target: 'all', restore: () => restoreAll(saved) })
+    setUndo({ target: 'all', restore: undoAll })
     markAiWritten()
     setDirty(true)
     ai.setFeedback({
       tone: notices.length ? 'notice' : 'success',
-      text: [...notices, 'Draft ready. Read it through, check the facts and sources, then tick the review box to publish.'].join(' '),
+      text: [
+        ...notices,
+        'Draft ready.',
+        ...(coverAdded ? ['A cover photo from Pexels was added; check that it suits the post.'] : []),
+        'Read it through, check the facts and sources, then tick the review box to publish.',
+      ].join(' '),
     })
   }
 
@@ -532,7 +675,7 @@ export function ContentForm({
   }
 
   /** Writes one short field and offers to undo it. */
-  function writeField(field: Exclude<AiField, 'body' | 'meta' | 'cover_alt'>, form: HTMLFormElement | null) {
+  function writeField(field: Exclude<AiField, 'body' | 'meta' | 'cover_alt' | 'cover_photo'>, form: HTMLFormElement | null) {
     if (busy) return
     const saved = snapshot()
     void ai.run(field, async (call) => {
@@ -677,6 +820,7 @@ export function ContentForm({
         <div className="min-w-0 space-y-6">
           <AiPanel
             provider={aiProvider}
+            coverPhotos={photosEnabled}
             trend={trend}
             reference={reference}
             onReference={setReference}
@@ -1251,8 +1395,9 @@ export function ContentForm({
             </section>
           ) : null}
 
-          <section className="rounded-lg border border-border bg-card p-4">
+          <section className="space-y-4 rounded-lg border border-border bg-card p-4">
             <MediaField
+              key={`cover-${cover.key}`}
               kind="cover"
               label={type === 'resource' ? 'Cover image or photo' : 'Cover image'}
               hint={
@@ -1261,14 +1406,23 @@ export function ContentForm({
                   : 'Shown on cards, on the page and when the page is shared.'
               }
               media={media}
-              initial={{
-                id: item?.coverMediaId,
-                libraryUrl: item?.coverMediaUrl,
-                url: item?.coverImageUrl ?? '',
-                alt: item?.coverAlt ?? '',
-              }}
+              initial={cover.initial}
               errors={{ url: errors.cover_image_url ?? errors.cover_media_id, alt: errors.cover_alt }}
               onChange={() => setDirty(true)}
+              onImageChange={(url) => {
+                setCoverUrl(url)
+                // The credit belongs to the Pexels photo: drop it when the cover changes.
+                if (!url?.startsWith('https://images.pexels.com/')) {
+                  setSources((rows) => rows.filter((row) => !row.url.startsWith(PEXELS_PHOTO_PAGE)))
+                }
+              }}
+              action={aiAction(
+                'cover_photo',
+                'cover photo',
+                'Pick',
+                (form) => findCoverPhoto(form),
+                photosEnabled ? undefined : 'Add a Pexels API key (PEXELS_API_KEY) first',
+              )}
               altAction={({ imageUrl, alt, setAlt }) =>
                 aiAction(
                   'cover_alt',
@@ -1279,6 +1433,24 @@ export function ContentForm({
                 )
               }
             />
+            {photosEnabled ? (
+              <CoverPhotos
+                key={`photos-${photoSearch.run}`}
+                initialQuery={photoSearch.searches[0] ?? ''}
+                photos={photoSearch.photos}
+                message={photoSearch.message}
+                current={coverUrl}
+                searching={searchingPhotos}
+                disabled={busy}
+                onSearch={searchPhotos}
+                onPick={applyPhoto}
+              />
+            ) : (
+              <p className="border-t border-border pt-3 text-xs leading-relaxed text-muted-foreground">
+                Want free cover photos? Add a Pexels API key as <code>PEXELS_API_KEY</code> (README → Cover photos) to
+                search Pexels here and let the AI pick a photo for each post.
+              </p>
+            )}
           </section>
         </div>
       </div>

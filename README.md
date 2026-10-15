@@ -37,6 +37,7 @@ Built with Next.js 16 (App Router, Cache Components), TypeScript, Tailwind CSS 4
 - Categories, tags, keywords, media library, custom `/go/` redirects with click counts, and SEO fields (SEO title, meta description, canonical URL, noindex).
 - Every post has a cover image field, downloads an app icon field and resources a video field. Each one accepts an upload, a link or a file from the media library, with a preview that appears as soon as you pick a file or paste a link.
 - **AI writer** (optional, free with Gemini or paid with Claude): every field of the post editor (title, slug, summary, body, SEO title, meta description, keywords, tags, category, difficulty, cover alt text) has a Write with AI button, and **Write the whole post** researches the topic, writes the body and fills in every other field. See [AI writer](#ai-writer).
+- **Cover photos** (optional, free with a Pexels key): search free photos from the cover field, or let the AI pick one; *Write the whole post* adds one to posts without a cover. See [Cover photos](#cover-photos).
 - **Trends:** top Google searches, news, YouTube videos, X trends and Wikipedia's most-read pages, for Ghana and worldwide. Start a post from any topic with the title, keywords and source filled in, or **Draft with AI** to have it researched and written for you to review; topics you have covered are marked.
 - **SEO:** Google Search Console performance, index status and sitemap; Bing and other IndexNow engines told about every change; content checks that point out what to fix on each post.
 
@@ -119,6 +120,7 @@ The example file lists every setting with a placeholder. A value that is empty o
 | `GEMINI_MODEL` | No | Gemini model that writes bodies, for when Google retires the default (`gemini-3.8-flash`). |
 | `GEMINI_LIGHT_MODEL` | No | Gemini model for titles, summaries, SEO fields, tags, categories and alt text (default `gemini-3.5-flash-lite`). |
 | `ANTHROPIC_API_KEY` | No | Claude API key (paid): the [AI writer](#ai-writer) with web research. Used instead of Gemini when set. Server only. |
+| `PEXELS_API_KEY` | No | Free Pexels API key: [cover photos](#cover-photos) found by you or the AI. Server only. |
 | `NEXT_PUBLIC_ADSENSE_CLIENT_ID` | No | AdSense publisher ID, e.g. `ca-pub-1234567890123456`: turns on [ads](#ads-and-reader-engagement). |
 | `NEXT_PUBLIC_ADSENSE_SLOT_IN_ARTICLE` | No | ID of an AdSense *In-article* ad unit, e.g. `1234567890`, for ads between sections. |
 | `NEXT_PUBLIC_CONTACT_EMAIL` | No | Shown on `/privacy` as the address for privacy questions. |
@@ -128,7 +130,7 @@ The example file lists every setting with a placeholder. A value that is empty o
 | `SEARCH_CONSOLE_PROPERTY` | No | Your Search Console property, e.g. `sc-domain:example.com`. |
 | `INDEXNOW_KEY` | No | 8 to 128 letters, digits or dashes; served at `/indexnow.txt`. |
 
-The app never uses a Supabase service-role or secret key; everything runs as the visitor or the signed-in editor, and Row Level Security decides what each can do. `NEXT_PUBLIC_*` values are compiled into the build, so rebuild after changing them. The AI keys and the five keys for the [Trends and SEO](#trends-and-seo) pages are read only on the server: never give them a `NEXT_PUBLIC_` name. **Settings** in the dashboard shows whether the AI writer and AdSense are on.
+The app never uses a Supabase service-role or secret key; everything runs as the visitor or the signed-in editor, and Row Level Security decides what each can do. `NEXT_PUBLIC_*` values are compiled into the build, so rebuild after changing them. The AI and Pexels keys and the five keys for the [Trends and SEO](#trends-and-seo) pages are read only on the server: never give them a `NEXT_PUBLIC_` name. **Settings** in the dashboard shows whether the AI writer, cover photos and AdSense are on.
 
 ### 5. Run
 
@@ -358,6 +360,25 @@ The server only opens public `https://` addresses (never local or internal ones)
 **Cost:** Gemini's free tier costs nothing within its limits. Claude Opus 5.5 is billed per token (US$4 per million input tokens, US$20 per million output tokens), web searches at US$10 per 1,000: short fields cost a few cents at most, and a researched body usually well under US$1. The Claude instructions are cached between requests, which makes repeated buttons on the same post cheaper. If Claude's safety filters decline a request, the API retries it on another model automatically.
 
 The keys stay on the server. The editor talks to `/admin/ai`, which accepts only same-origin requests from signed-in admins.
+
+### Cover photos
+
+Posts can get a free cover photo from [Pexels](https://www.pexels.com). Its [licence](https://www.pexels.com/license/) allows use on sites with ads, without payment and without credit; the editor credits the photographer anyway, as Pexels asks of sites that use its API.
+
+**Turn it on (free)**
+
+1. Create a free account at [pexels.com](https://www.pexels.com/join/), open [pexels.com/api](https://www.pexels.com/api/) and request an API key (describe the site in a sentence; the key is shown straight away).
+2. Set it as `PEXELS_API_KEY` (server only, never `NEXT_PUBLIC_`) in Vercel and in `.env.local`, then redeploy and restart.
+
+**In the editor**
+
+- **Pick** next to *Cover image* has the AI decide what the photo should show (from the title, summary and body), searches Pexels and makes the best match the cover, with its description as alt text. It uses one short AI request.
+- **Write the whole post** also adds a cover when the post has none, from searches written in the same request as the other short fields, so it costs no extra AI request. A cover you have already chosen is never replaced.
+- Under **Free photos** you see up to 12 alternatives: click one to use it instead, or type your own search (for example "Accra market"). **Undo** puts the previous cover back. The search works without the AI writer too.
+- The photo is linked from Pexels at 1200 × 627 (the shape of the cover frame, about 50–100 KB), and "Cover photo by … (Pexels)" is added to **Sources**. The credit goes when you remove or replace the photo.
+- Stock libraries have photos of objects, places and activities, not of particular people or events. For stories about real people, conflicts, crime or scandal, the AI looks for a symbolic photo without recognisable faces, because the licence does not allow showing identifiable people in a bad light. Check that the photo cannot be taken for the people in the story; when the story needs the real person or event, upload a photo you have the right to use.
+
+Pexels allows 200 searches an hour and 20,000 a month; each pick uses up to three.
 
 ## Ads and reader engagement
 

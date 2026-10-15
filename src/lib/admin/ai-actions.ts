@@ -4,13 +4,16 @@ import { listPostCategories, listTaxonomy } from '@/lib/admin/queries'
 import { CATEGORY_SYSTEM, categoryAdviceSchema, categoryPrompt, cleanCategoryAdvice, type CategoryInput } from '@/lib/ai/categories'
 import type { CategoryAdviceResult, LinkReadResult } from '@/lib/ai/fields'
 import { aiSetup, generateStructured } from '@/lib/ai/writer'
-import { requireAdmin } from '@/lib/auth'
+import { getAuthState, requireAdmin } from '@/lib/auth'
 import { readLink } from '@/lib/social-link'
 import { getSearchTrends } from '@/lib/trends'
 
 /** Reads a link to a post on X, TikTok, YouTube… or any page, for the AI writer to write from. */
 export async function readPostLink(url: unknown): Promise<LinkReadResult> {
-  await requireAdmin()
+  // Reported rather than redirected, so an expired session does not take the editor away from unsaved work.
+  if ((await getAuthState()).status !== 'admin') {
+    return { ok: false, message: 'Your session has ended. Sign in again in another tab, then retry.' }
+  }
   if (typeof url !== 'string' || !url.trim() || url.length > 2000) {
     return { ok: false, message: 'Paste the full link, starting with https://' }
   }

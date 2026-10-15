@@ -71,7 +71,8 @@ function initialValue(kind: Kind, initial: { id?: string | null; url: string; li
  * An image or video for a post: uploaded, linked from another site or picked
  * from the media library, with a preview that updates as soon as it changes.
  * Submits `cover_media_id` / `cover_image_url` / `cover_alt` for covers, and a
- * single URL (`icon_url`, `video_url`) for icons and videos.
+ * single URL (`icon_url`, `video_url`) for icons and videos. To set the value
+ * from outside, remount it (change its `key`) with a new `initial`.
  */
 export function MediaField({
   kind,
@@ -81,6 +82,8 @@ export function MediaField({
   initial,
   errors = {},
   onChange,
+  onImageChange,
+  action,
   altAction,
 }: {
   kind: Kind
@@ -90,6 +93,10 @@ export function MediaField({
   initial: { id?: string | null; url: string; libraryUrl?: string | null; alt?: string }
   errors?: { url?: string; alt?: string }
   onChange?: () => void
+  /** The editor picked, uploaded, linked or removed the file: its web address, or null. */
+  onImageChange?: (url: string | null) => void
+  /** A control next to the label, such as an AI button. */
+  action?: ReactNode
   /** Covers only: a control next to the alt text label, given the image's web address (null while none is ready). */
   altAction?: (props: { imageUrl: string | null; alt: string; setAlt: (alt: string) => void }) => ReactNode
 }) {
@@ -123,6 +130,7 @@ export function MediaField({
     setLocalPreview(null)
     setProblem(null)
     onChange?.()
+    onImageChange?.(next.source === 'none' ? null : next.url)
   }
 
   function upload(file: File) {
@@ -154,6 +162,7 @@ export function MediaField({
         // Keep showing the local preview: it is the same file, already loaded.
         setValue({ source: 'library', id: record.id, url: record.url })
         onChange?.()
+        onImageChange?.(record.url)
       } catch (caught) {
         setLocalPreview(null)
         setProblem(`Upload failed: ${caught instanceof Error ? caught.message : 'unknown error'}`)
@@ -172,7 +181,15 @@ export function MediaField({
 
   return (
     <fieldset className="space-y-3">
-      <legend className="text-sm font-medium text-foreground">{label}</legend>
+      <legend className={action ? 'sr-only' : 'text-sm font-medium text-foreground'}>{label}</legend>
+      {action ? (
+        <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <span aria-hidden className="text-sm font-medium text-foreground">
+            {label}
+          </span>
+          {action}
+        </div>
+      ) : null}
       {hint ? <p className="-mt-1 text-xs leading-relaxed text-muted-foreground">{hint}</p> : null}
 
       {kind === 'cover' ? (
@@ -252,6 +269,7 @@ export function MediaField({
               setValue(text.trim() ? { source: 'link', url: text.trim() } : { source: 'none' })
               setLocalPreview(null)
               setProblem(null)
+              onImageChange?.(text.trim() || null)
             }}
             onPaste={(event) => setPreviewLink(event.clipboardData.getData('text').trim())}
             {...fieldAria(field, { hint: true, error })}

@@ -18,6 +18,7 @@ import { requireAdmin } from '@/lib/auth'
 import { contentTypeConfig, isContentStatus, type ContentType } from '@/lib/content/types'
 import { parseVideoUrl } from '@/lib/media'
 import { siteConfig } from '@/lib/site'
+import { photosEnabled } from '@/lib/stock-photos'
 
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -109,6 +110,7 @@ export async function ContentEditor({
         notice={notice}
         draft={item ? undefined : draftFrom(query, type)}
         aiProvider={aiSetup().provider}
+        photosEnabled={photosEnabled()}
       />
 
       {item ? (

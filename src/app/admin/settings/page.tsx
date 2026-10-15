@@ -7,6 +7,7 @@ import { adsense } from '@/lib/ads'
 import { aiSetup } from '@/lib/ai/writer'
 import { requireAdmin } from '@/lib/auth'
 import { siteConfig, siteUrlConfigured } from '@/lib/site'
+import { PHOTOS_OFF_MESSAGE, photosEnabled } from '@/lib/stock-photos'
 
 export const metadata: Metadata = { title: 'Settings' }
 
@@ -59,6 +60,15 @@ async function Settings() {
                 <dt className="text-muted-foreground">AI writer</dt>
                 <dd className="font-medium text-foreground">{ai.enabled ? 'On' : 'Off'}</dd>
                 <dd className="mt-1 text-xs text-muted-foreground">{ai.message}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Cover photos</dt>
+                <dd className="font-medium text-foreground">{photosEnabled() ? 'On (Pexels)' : 'Off'}</dd>
+                <dd className="mt-1 text-xs text-muted-foreground">
+                  {photosEnabled()
+                    ? `Search free photos from the cover field${ai.enabled ? ', or let the AI pick one' : ''}.`
+                    : PHOTOS_OFF_MESSAGE}
+                </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">Google AdSense</dt>

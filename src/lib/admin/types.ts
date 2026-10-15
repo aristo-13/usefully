@@ -101,3 +101,19 @@ export type DashboardData = {
   inReview: AdminContentRow[]
   recent: AdminContentRow[]
 }
+
+/** A free photo from Pexels, offered as a post's cover. */
+export type StockPhoto = {
+  id: number
+  /** The image used as the cover: 1200 × 627, cropped by Pexels to the shape of the cover frame. */
+  src: string
+  /** A small preview for the picker. */
+  thumb: string
+  alt: string
+  photographer: string
+  photographerUrl: string
+  /** The photo's page on Pexels, used for the credit. */
+  page: string
+}
+
+export type PhotoSearchResult = { ok: true; photos: StockPhoto[] } | { ok: false; message: string }
