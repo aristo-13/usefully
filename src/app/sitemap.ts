@@ -1,4 +1,5 @@
 import type { MetadataRoute } from 'next'
+import { connection } from 'next/server'
 
 import { getCategories, getSitemapContent, getTags } from '@/lib/content/queries'
 import {
@@ -16,6 +17,10 @@ import { absoluteUrl } from '@/lib/site'
  * noindex or canonicalised to another URL.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  // Built when requested: a sitemap is otherwise generated once at build time
+  // and misses everything published after a deploy. The queries stay cached
+  // (15 minutes, or until the next publish), like the pages.
+  await connection()
   const [items, categories, tags] = await Promise.all([getSitemapContent(), getCategories(), getTags()])
 
   const latestByType = new Map<ContentType, string>()
