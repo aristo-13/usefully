@@ -12,6 +12,20 @@ import {
 import { absoluteUrl } from '@/lib/site'
 
 /**
+ * Next.js writes sitemap values into the XML unchanged, so characters with a
+ * meaning in XML are escaped here: an image link such as `…?w=1200&h=627`
+ * would otherwise make the whole sitemap unreadable.
+ */
+function xml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&apos;')
+}
+
+/**
  * Lists only pages worth indexing: sections and categories with published
  * content, tags with enough items, and published pages that are not marked
  * noindex or canonicalised to another URL.
@@ -60,5 +74,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     entries.push({ url, lastModified: item.updatedAt, ...(image ? { images: [image] } : {}) })
   }
 
-  return entries
+  return entries.map((entry) => ({ ...entry, url: xml(entry.url), ...(entry.images ? { images: entry.images.map(xml) } : {}) }))
 }
